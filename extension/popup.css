@@ -1,0 +1,198 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0a0e1a;
+  --text: #e7ecf5;
+  --muted: #8b95ad;
+  --primary: #22d3ee;
+  --primary-2: #a78bfa;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+
+  /* Liquid-glass surface tokens — matches the webapp dashboard */
+  --glass-fill: rgba(255, 255, 255, 0.055);
+  --glass-fill-strong: rgba(255, 255, 255, 0.09);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-highlight: rgba(255, 255, 255, 0.28);
+  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --blur: blur(18px) saturate(160%);
+}
+
+body {
+  width: 360px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Drifting colour blobs behind everything — glass needs something to refract. */
+body::before {
+  content: "";
+  position: fixed; inset: -20%;
+  background:
+    radial-gradient(45% 35% at 20% 10%, rgba(34, 211, 238, 0.22), transparent 60%),
+    radial-gradient(38% 30% at 90% 15%, rgba(167, 139, 250, 0.18), transparent 60%),
+    radial-gradient(45% 38% at 25% 95%, rgba(34, 197, 94, 0.10), transparent 60%);
+  filter: blur(10px);
+  animation: drift 26s ease-in-out infinite alternate;
+  z-index: -1;
+  pointer-events: none;
+}
+@keyframes drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-3%, 3%, 0) scale(1.08); }
+}
+
+.header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px;
+  background: var(--glass-fill); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border-bottom: 1px solid var(--glass-border);
+  position: relative;
+}
+.header::after {
+  content: ""; position: absolute; inset: auto 0 0 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--glass-highlight), transparent);
+}
+.logo {
+  width: 34px; height: 34px; flex-shrink: 0;
+  background: linear-gradient(135deg, #22d3ee, #6366f1);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  color: #06101f;
+  box-shadow: 0 0 20px rgba(34,211,238,0.45), inset 0 1px 0 rgba(255,255,255,0.5);
+}
+.logo svg { width: 18px; height: 18px; }
+h1 { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; }
+.grad { background: linear-gradient(90deg,#22d3ee,#a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.sub { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 1px; }
+
+.tabs { display: flex; gap: 4px; padding: 8px 16px; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--glass-border); }
+.tab-btn {
+  background: none; border: 1px solid transparent; color: var(--muted); font-size: 12px; font-weight: 600;
+  padding: 6px 12px; border-radius: 999px; cursor: pointer; transition: all 0.15s ease;
+}
+.tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.tab-btn.active { color: #06101f; background: linear-gradient(135deg, var(--primary), var(--primary-2)); border-color: transparent; font-weight: 700; }
+
+main { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+#tab-site, #tab-mail { display: flex; flex-direction: column; gap: 14px; }
+
+.mail-connect { text-align: center; padding: 10px 4px; display: flex; flex-direction: column; gap: 10px; }
+.mail-list { list-style: none; display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+.mail-item {
+  border: 1px solid var(--glass-border); border-radius: 12px; padding: 9px 11px; cursor: pointer;
+  display: flex; flex-direction: column; gap: 4px;
+  background: rgba(255,255,255,0.03); transition: background 0.15s ease, border-color 0.15s ease;
+}
+.mail-item:hover { border-color: rgba(34,211,238,0.4); background: rgba(34,211,238,0.06); }
+.mail-item .mail-subject { font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-item .mail-from { font-size: 10px; color: var(--muted); }
+.mail-badge { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; align-self: flex-start; border: 1px solid transparent; }
+.mail-badge.safe { background: rgba(34,197,94,0.14); color: var(--success); border-color: rgba(34,197,94,0.35); }
+.mail-badge.suspicious { background: rgba(245,158,11,0.14); color: var(--warning); border-color: rgba(245,158,11,0.35); }
+.mail-badge.phishing { background: rgba(239,68,68,0.14); color: var(--danger); border-color: rgba(239,68,68,0.35); }
+
+/* ---------- Glass card ---------- */
+.verdict-card, .meta, .reasons, .recommendation, .mail-panel {
+  position: relative; border-radius: 16px; padding: 14px;
+  background: var(--glass-fill); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
+  overflow: hidden;
+}
+.verdict-card::before, .meta::before, .reasons::before, .recommendation::before, .mail-panel::before {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--glass-highlight), transparent);
+}
+.verdict-card.safe       { border-color: rgba(34,197,94,0.4); }
+.verdict-card.suspicious { border-color: rgba(245,158,11,0.4); }
+.verdict-card.phishing   { border-color: rgba(239,68,68,0.5); box-shadow: 0 0 28px rgba(239,68,68,0.22), var(--glass-shadow); }
+
+.verdict-row { display: flex; align-items: center; justify-content: space-between; }
+.verdict-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--muted);
+}
+.verdict-text {
+  font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin-top: 2px;
+}
+.verdict-text.safe { color: var(--success); }
+.verdict-text.suspicious { color: var(--warning); }
+.verdict-text.phishing { color: var(--danger); }
+.score {
+  font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.score-out { font-size: 12px; color: var(--muted); }
+
+.bar {
+  height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; margin-top: 12px; overflow: hidden;
+}
+.bar-fill { height: 100%; transition: width 0.5s ease; }
+.bar-fill.safe { background: var(--success); }
+.bar-fill.suspicious { background: var(--warning); }
+.bar-fill.phishing { background: var(--danger); }
+
+.verdict-loading { display: flex; align-items: center; gap: 10px; color: var(--muted); }
+.spinner { width: 14px; height: 14px; border: 2px solid rgba(34,211,238,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.meta { display: flex; flex-direction: column; gap: 4px; font-size: 11px; padding: 10px 14px; }
+.meta-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed var(--glass-border); }
+.meta-row:last-child { border-bottom: none; }
+.meta-row span { color: var(--muted); }
+.meta-row strong { font-family: ui-monospace, "SF Mono", monospace; font-weight: 500; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 8px; }
+.reasons ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.reasons li { font-size: 12px; color: var(--text); padding-left: 14px; position: relative; line-height: 1.45; }
+.reasons li::before { content: "▸"; color: var(--primary); position: absolute; left: 0; }
+.reasons li.muted { color: var(--muted); }
+.reasons li.muted::before { color: var(--muted); }
+
+.rec-text { font-size: 17px; font-weight: 800; }
+.rec-text.Proceed { color: var(--success); }
+.rec-text.Caution { color: var(--warning); }
+.rec-text.Avoid, .rec-text.Report { color: var(--danger); }
+
+.actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.btn {
+  position: relative; isolation: isolate; overflow: hidden;
+  background: var(--glass-fill-strong); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  color: var(--text); border: 1px solid var(--glass-border);
+  padding: 9px 6px; border-radius: 10px; font-size: 11px; font-weight: 600; cursor: pointer;
+  box-shadow: var(--glass-shadow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease, background 0.15s ease;
+}
+.btn:hover { transform: translateY(-1px); background: rgba(255,255,255,0.12); box-shadow: 0 10px 22px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.14); }
+.btn:active { transform: translateY(0); filter: brightness(0.96); }
+.btn-warn:hover { border-color: rgba(245,158,11,0.5); background: rgba(245,158,11,0.12); color: var(--warning); }
+.btn-ghost { color: var(--muted); }
+
+/* Primary call-to-action buttons (Connect Gmail) get the full gradient sheen treatment */
+#gmail-connect-btn {
+  background: linear-gradient(155deg, rgba(34, 211, 238, 0.95), rgba(99, 102, 241, 0.9));
+  color: #05131f; border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 6px 18px rgba(34, 211, 238, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+#gmail-connect-btn::before {
+  content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.55) 46%, transparent 62%);
+  background-size: 220% 100%; background-position: 120% 0;
+  transition: background-position 0.6s ease;
+}
+#gmail-connect-btn:hover::before { background-position: -20% 0; }
+#gmail-connect-btn:hover { box-shadow: 0 10px 24px rgba(34, 211, 238, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+
+footer {
+  padding: 10px 16px;
+  background: rgba(255,255,255,0.02);
+  border-top: 1px solid var(--glass-border);
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 10px; color: var(--muted);
+}
+footer a { color: var(--primary); text-decoration: none; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot-on { background: var(--success); box-shadow: 0 0 8px var(--success); }
+.dot-off { background: var(--danger); }

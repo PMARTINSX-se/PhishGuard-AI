@@ -1,0 +1,28 @@
+# Large generated/downloaded data — regenerate via README's dataset steps, don't commit.
+backend/data/phishing_site_urls.csv
+backend/data/urls.csv
+backend/data/phishtank_cache.json
+backend/data/phishguard.db
+backend/models/*.pkl
+
+# Python
+backend/__pycache__/
+backend/**/__pycache__/
+backend/venv/
+backend/.venv/
+*.pyc
+
+# Node / Electron
+desktop/node_modules/
+desktop/dist/
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db
+
+# Claude Code's own local session/tool config — not part of the project
+.claude/
+
+# Local secrets — Google OAuth client secret must never be committed (README has you set it
+# as an env var when running the backend, never hardcode it in source).
+.env

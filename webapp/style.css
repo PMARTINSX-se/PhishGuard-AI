@@ -1,0 +1,235 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0a0e1a;
+  --text: #e7ecf5;
+  --muted: #8b95ad;
+  --primary: #22d3ee;
+  --primary-2: #a78bfa;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+
+  /* Liquid-glass surface tokens */
+  --glass-fill: rgba(255, 255, 255, 0.055);
+  --glass-fill-strong: rgba(255, 255, 255, 0.09);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-highlight: rgba(255, 255, 255, 0.28);
+  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --blur: blur(22px) saturate(160%);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Drifting colour blobs behind everything — glass needs something to refract. */
+body::before {
+  content: "";
+  position: fixed; inset: -10%;
+  background:
+    radial-gradient(38% 30% at 18% 12%, rgba(34, 211, 238, 0.22), transparent 60%),
+    radial-gradient(32% 26% at 85% 18%, rgba(167, 139, 250, 0.18), transparent 60%),
+    radial-gradient(40% 34% at 30% 92%, rgba(34, 197, 94, 0.10), transparent 60%),
+    radial-gradient(30% 28% at 92% 85%, rgba(239, 68, 68, 0.08), transparent 60%);
+  filter: blur(10px);
+  animation: drift 26s ease-in-out infinite alternate;
+  z-index: -1;
+  pointer-events: none;
+}
+@keyframes drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-2%, 2%, 0) scale(1.06); }
+}
+
+.wrap { max-width: 880px; margin: 0 auto; padding: 24px 16px 60px; }
+
+header.top {
+  display: flex; align-items: center; gap: 14px; padding: 12px 18px; margin-bottom: 22px;
+  border-radius: 18px; background: var(--glass-fill); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
+}
+.logo {
+  width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+  background: linear-gradient(135deg, #22d3ee, #6366f1); display: flex; align-items: center; justify-content: center;
+  color: #06101f; box-shadow: 0 0 24px rgba(34, 211, 238, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.logo svg { width: 23px; height: 23px; }
+h1 { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; }
+.grad { background: linear-gradient(90deg, #22d3ee, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.sub { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; margin-top: 1px; }
+#install-btn { margin-left: auto; }
+
+/* ---------- Glass card ---------- */
+.card {
+  position: relative; border-radius: 18px; padding: 20px; margin-bottom: 18px;
+  background: var(--glass-fill); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
+  overflow: hidden;
+}
+.card::before {
+  /* top sheen */
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--glass-highlight), transparent);
+}
+h2 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted);
+  margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+}
+
+.scan-row { display: flex; gap: 8px; }
+input[type=text], input[type=number] {
+  flex: 1; padding: 11px 14px; background: rgba(4, 8, 18, 0.45); border: 1px solid var(--glass-border);
+  color: var(--text); border-radius: 12px; font-family: ui-monospace, monospace; font-size: 13px;
+  transition: border-color 0.15s, box-shadow 0.15s; backdrop-filter: blur(8px);
+}
+input[type=text]::placeholder, input[type=number]::placeholder { color: var(--muted); }
+input[type=text]:focus, input[type=number]:focus {
+  outline: none; border-color: rgba(34, 211, 238, 0.55); box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.15);
+}
+
+/* ---------- Liquid glass buttons ---------- */
+button {
+  position: relative; isolation: isolate; overflow: hidden;
+  background: linear-gradient(155deg, rgba(34, 211, 238, 0.95), rgba(99, 102, 241, 0.9));
+  color: #05131f; border: 1px solid rgba(255, 255, 255, 0.35);
+  padding: 10px 18px; border-radius: 12px; font-weight: 700; cursor: pointer; font-size: 13px;
+  box-shadow: 0 6px 18px rgba(34, 211, 238, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+button::before {
+  /* moving specular sheen */
+  content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.55) 46%, transparent 62%);
+  background-size: 220% 100%; background-position: 120% 0;
+  transition: background-position 0.6s ease;
+}
+button:hover:not(:disabled)::before { background-position: -20% 0; }
+button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(34, 211, 238, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+button:active:not(:disabled) { transform: translateY(0); filter: brightness(0.96); }
+
+button.ghost {
+  background: var(--glass-fill-strong); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  color: var(--text); border: 1px solid var(--glass-border); font-weight: 600;
+  box-shadow: var(--glass-shadow);
+}
+button.ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); box-shadow: 0 10px 26px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.14); }
+button.warn { background: linear-gradient(155deg, #f87171, #ef4444); box-shadow: 0 6px 18px rgba(239, 68, 68, 0.3), inset 0 1px 0 rgba(255,255,255,0.4); color: #fff; }
+button:disabled { opacity: 0.5; cursor: default; transform: none !important; }
+
+.scan-result { margin-top: 16px; padding: 16px; border-radius: 14px; border: 1px solid var(--glass-border); background: rgba(4,8,18,0.35); display: none; }
+.scan-result.show { display: block; animation: rise 0.25s ease; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.verdict-line { display: flex; justify-content: space-between; align-items: center; }
+.verdict-badge {
+  font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 5px 12px; border-radius: 999px; border: 1px solid transparent;
+}
+.verdict-badge.safe { background: rgba(34,197,94,0.14); color: var(--success); border-color: rgba(34,197,94,0.35); }
+.verdict-badge.suspicious { background: rgba(245,158,11,0.14); color: var(--warning); border-color: rgba(245,158,11,0.35); }
+.verdict-badge.phishing { background: rgba(239,68,68,0.14); color: var(--danger); border-color: rgba(239,68,68,0.35); }
+.reasons { margin-top: 12px; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.reasons li { font-size: 12px; padding-left: 16px; position: relative; }
+.reasons li::before { content: "▸"; color: var(--primary); position: absolute; left: 0; }
+.inv-trigger { margin-top: 12px; }
+
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
+.stat {
+  text-align: center; padding: 16px 10px; border-radius: 14px; border: 1px solid var(--glass-border);
+  background: rgba(255,255,255,0.04); transition: transform 0.15s ease, background 0.15s ease;
+}
+.stat:hover { transform: translateY(-2px); background: rgba(255,255,255,0.07); }
+.stat .num { font-size: 26px; font-weight: 800; }
+.stat .label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 5px; }
+
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--glass-border); }
+th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.06em; }
+td.url { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, monospace; }
+.tag { font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; border: 1px solid transparent; }
+.tag.safe { background: rgba(34,197,94,0.14); color: var(--success); border-color: rgba(34,197,94,0.3); }
+.tag.suspicious { background: rgba(245,158,11,0.14); color: var(--warning); border-color: rgba(245,158,11,0.3); }
+.tag.phishing { background: rgba(239,68,68,0.14); color: var(--danger); border-color: rgba(239,68,68,0.3); }
+
+tr.clickable { cursor: pointer; transition: background 0.12s ease; }
+tr.clickable:hover td { background: rgba(34, 211, 238, 0.07); }
+
+.list-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 640px) { .list-grid { grid-template-columns: 1fr; } }
+.list-heading { font-size: 12px; font-weight: 700; margin-bottom: 8px; display: block; }
+.list-heading.success-text { color: var(--success); }
+.list-heading.danger-text { color: var(--danger); }
+.domain-row {
+  display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; margin-bottom: 6px;
+  border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border); font-size: 12px;
+}
+.domain-row button { padding: 4px 10px; font-size: 11px; border-radius: 8px; }
+.add-row { display: flex; gap: 6px; margin-top: 10px; }
+.empty-hint { color: var(--muted); font-size: 11px; padding: 8px 2px; }
+
+.hint { margin-top: 10px; font-size: 11px; color: var(--muted); line-height: 1.5; }
+.hint code { font-family: ui-monospace, monospace; background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px; }
+
+.muted { color: var(--muted); }
+footer.foot { text-align: center; color: var(--muted); font-size: 11px; padding: 24px 0 4px; }
+
+/* ---------- Investigation report modal ---------- */
+.inv-overlay {
+  position: fixed; inset: 0; background: rgba(4,7,16,0.6); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  align-items: flex-start; justify-content: center; padding: 40px 16px;
+  overflow-y: auto; z-index: 100; animation: fadeIn 0.18s ease;
+}
+/* Author CSS beats the browser's default [hidden]{display:none} regardless of source order, so
+   the modal must only turn on flex-display when NOT hidden — otherwise it's stuck visible (and
+   blocking every click underneath) even before it's ever opened. */
+.inv-overlay:not([hidden]) { display: flex; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.inv-modal {
+  background: rgba(19, 26, 48, 0.7); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: 20px;
+  max-width: 620px; width: 100%; padding: 26px 26px 18px; position: relative;
+  box-shadow: var(--glass-shadow); animation: pop 0.2s ease;
+}
+@keyframes pop { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.inv-close {
+  position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; padding: 0;
+  background: var(--glass-fill-strong); border: 1px solid var(--glass-border); color: var(--muted);
+  font-size: 14px; border-radius: 999px; box-shadow: none; display: flex; align-items: center; justify-content: center;
+}
+.inv-close::before { display: none; }
+.inv-close:hover { color: var(--text); background: rgba(255,255,255,0.14); transform: none; box-shadow: none; }
+
+.inv-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--glass-border); }
+.inv-title { font-size: 13px; font-weight: 800; letter-spacing: 0.08em; }
+.inv-target { font-size: 11px; margin-top: 4px; word-break: break-all; font-family: ui-monospace, monospace; }
+.inv-verdict-block { text-align: right; flex-shrink: 0; }
+.inv-verdict { font-size: 17px; font-weight: 800; }
+.inv-verdict.safe { color: var(--success); }
+.inv-verdict.suspicious { color: var(--warning); }
+.inv-verdict.phishing { color: var(--danger); }
+.inv-risk { font-size: 24px; font-weight: 800; margin-top: 2px; }
+
+.inv-section { margin-bottom: 18px; }
+.inv-section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 8px; }
+.inv-bullets { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+.inv-bullets li { font-size: 13px; padding: 6px 10px 6px 30px; position: relative; border-radius: 8px; background: rgba(255,255,255,0.03); }
+.inv-bullets li.critical::before { content: "🔴"; position: absolute; left: 8px; font-size: 11px; }
+.inv-bullets li.warning::before { content: "⚠️"; position: absolute; left: 8px; font-size: 11px; }
+.inv-bullets li.ok::before { content: "✅"; position: absolute; left: 8px; font-size: 11px; }
+#inv-threat-type { font-size: 14px; font-weight: 700; }
+.inv-recommendation { font-size: 14px; font-weight: 700; color: var(--danger); }
+.inv-actions { display: flex; justify-content: flex-end; padding-top: 10px; border-top: 1px solid var(--glass-border); }
+
+@media print {
+  /* visibility:hidden keeps hidden elements' layout space, so the long dashboard behind the
+     modal was still occupying its full multi-page height and pushing the actual report down —
+     hence blank leading pages. display:none removes it from flow entirely instead. */
+  body > *:not(.inv-overlay) { display: none !important; }
+  .inv-overlay { position: static; background: none; padding: 0; display: block; backdrop-filter: none; }
+  .inv-modal { position: static; border: none; box-shadow: none; max-width: 100%; backdrop-filter: none; background: #fff; color: #000; }
+  .inv-close, .no-print { display: none !important; }
+}

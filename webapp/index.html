@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b1020" />
+<title>PhishGuard AI Dashboard</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z"/></svg>
+      </div>
+      <div>
+        <h1>PhishGuard <span class="grad">AI</span></h1>
+        <p class="sub">Dashboard</p>
+      </div>
+      <button id="install-btn" class="ghost" hidden>Install app</button>
+    </header>
+
+    <section class="card">
+      <h2>🔍 Scan a URL</h2>
+      <div class="scan-row">
+        <input type="text" id="scan-input" placeholder="https://example.com or paste any link" />
+        <button id="scan-btn">Scan</button>
+      </div>
+      <div class="scan-result" id="scan-result">
+        <div class="verdict-line">
+          <span class="verdict-badge" id="result-badge">—</span>
+          <span id="result-score" class="muted"></span>
+        </div>
+        <ul class="reasons" id="result-reasons"></ul>
+        <button id="result-investigate-btn" class="ghost inv-trigger" hidden>Full investigation report</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>📊 Overview</h2>
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat"><div class="num" id="stat-total">—</div><div class="label">URL scans</div></div>
+        <div class="stat"><div class="num" id="stat-phish">—</div><div class="label">Phishing</div></div>
+        <div class="stat"><div class="num" id="stat-susp">—</div><div class="label">Suspicious</div></div>
+        <div class="stat"><div class="num" id="stat-emails">—</div><div class="label">Emails scanned</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>🕓 Recent scan history</h2>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Source</th><th>Verdict</th><th>Risk</th><th>When</th></tr></thead>
+          <tbody id="history-body"><tr><td colspan="4" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>🛡️ Whitelist / Blacklist</h2>
+      <div class="list-grid">
+        <div>
+          <span class="list-heading success-text">Whitelisted domains</span>
+          <div id="whitelist-rows"></div>
+          <div class="add-row">
+            <input type="text" id="whitelist-input" placeholder="example.com" />
+            <button id="whitelist-add">Add</button>
+          </div>
+        </div>
+        <div>
+          <span class="list-heading danger-text">Blacklisted domains</span>
+          <div id="blacklist-rows"></div>
+          <div class="add-row">
+            <input type="text" id="blacklist-input" placeholder="bad-site.tk" />
+            <button id="blacklist-add" class="warn">Add</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>🔌 Backend connection</h2>
+      <div class="scan-row">
+        <input type="text" id="api-base-input" placeholder="http://localhost:5000" />
+        <button id="api-base-save" class="ghost">Save</button>
+      </div>
+      <p class="hint">
+        Point this at a backend reachable from this device — for phone testing, use your computer's LAN IP
+        (e.g. <code>http://192.168.1.20:5000</code>) with the Flask server run as <code>python app.py</code> (already binds 0.0.0.0).
+      </p>
+    </section>
+
+    <footer class="foot">PhishGuard AI — companion dashboard. Not a replacement for the browser extension's live scanning.</footer>
+  </div>
+
+  <div class="inv-overlay" id="inv-overlay" hidden>
+    <div class="inv-modal" id="inv-modal">
+      <button class="inv-close" id="inv-close" aria-label="Close">✕</button>
+      <div id="inv-report">
+        <div class="inv-header">
+          <div>
+            <div class="inv-title">PHISHGUARD INVESTIGATION</div>
+            <div class="inv-target muted" id="inv-target"></div>
+          </div>
+          <div class="inv-verdict-block">
+            <div class="inv-verdict" id="inv-verdict">—</div>
+            <div class="inv-risk"><span id="inv-risk-score">—</span><span class="muted">/100</span></div>
+          </div>
+        </div>
+
+        <div class="inv-section" id="inv-sender-section" hidden>
+          <h3>Sender</h3>
+          <ul class="inv-bullets" id="inv-sender-bullets"></ul>
+        </div>
+
+        <div class="inv-section" id="inv-url-section" hidden>
+          <h3>URL</h3>
+          <ul class="inv-bullets" id="inv-url-bullets"></ul>
+        </div>
+
+        <div class="inv-section" id="inv-content-section" hidden>
+          <h3>Content</h3>
+          <ul class="inv-bullets" id="inv-content-bullets"></ul>
+        </div>
+
+        <div class="inv-section">
+          <h3>Threat type</h3>
+          <div id="inv-threat-type">—</div>
+        </div>
+
+        <div class="inv-section">
+          <h3>Recommendation</h3>
+          <div class="inv-recommendation" id="inv-recommendation">—</div>
+        </div>
+      </div>
+
+      <div class="inv-actions no-print">
+        <button id="inv-export-btn" class="ghost">⬇ Export PDF Report</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

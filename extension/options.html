@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PhishGuard AI Settings</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0a0e1a;
+  --text: #e7ecf5;
+  --muted: #8b95ad;
+  --primary: #22d3ee;
+  --primary-2: #a78bfa;
+  --success: #22c55e;
+  --glass-fill: rgba(255, 255, 255, 0.055);
+  --glass-fill-strong: rgba(255, 255, 255, 0.09);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-highlight: rgba(255, 255, 255, 0.28);
+  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --blur: blur(22px) saturate(160%);
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  background: var(--bg); color: var(--text);
+  padding: 36px 20px 60px; max-width: 640px; margin: 0 auto; position: relative; overflow-x: hidden;
+}
+body::before {
+  content: ""; position: fixed; inset: -10%;
+  background:
+    radial-gradient(38% 30% at 18% 12%, rgba(34, 211, 238, 0.2), transparent 60%),
+    radial-gradient(32% 26% at 85% 18%, rgba(167, 139, 250, 0.16), transparent 60%),
+    radial-gradient(40% 34% at 30% 92%, rgba(34, 197, 94, 0.08), transparent 60%);
+  filter: blur(10px); animation: drift 26s ease-in-out infinite alternate; z-index: -1; pointer-events: none;
+}
+@keyframes drift { 0% { transform: translate3d(0,0,0) scale(1); } 100% { transform: translate3d(-2%,2%,0) scale(1.06); } }
+
+header { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; }
+.logo {
+  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+  background: linear-gradient(135deg, #22d3ee, #6366f1); display: flex; align-items: center; justify-content: center;
+  color: #06101f; box-shadow: 0 0 22px rgba(34,211,238,0.45), inset 0 1px 0 rgba(255,255,255,0.5);
+}
+.logo svg { width: 20px; height: 20px; }
+h1 { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
+.grad { background: linear-gradient(90deg,#22d3ee,#a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.sub { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; margin-top: 2px; }
+
+.card {
+  position: relative; border-radius: 18px; padding: 22px; margin-bottom: 18px;
+  background: var(--glass-fill); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); overflow: hidden;
+}
+.card::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 1px; background: linear-gradient(90deg, transparent, var(--glass-highlight), transparent); }
+.card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 16px; }
+
+label { display: block; margin: 14px 0 6px; font-size: 12px; color: var(--muted); font-weight: 600; }
+label:first-of-type { margin-top: 0; }
+input, textarea {
+  width: 100%; padding: 10px 12px; background: rgba(4,8,18,0.45); border: 1px solid var(--glass-border);
+  color: var(--text); border-radius: 10px; font-family: ui-monospace, monospace; font-size: 12px;
+  backdrop-filter: blur(8px); transition: border-color 0.15s, box-shadow 0.15s;
+}
+input:focus, textarea:focus { outline: none; border-color: rgba(34,211,238,0.55); box-shadow: 0 0 0 3px rgba(34,211,238,0.15); }
+textarea { min-height: 76px; resize: vertical; }
+
+.row { display: flex; gap: 10px; align-items: center; margin: 10px 0; }
+.row input[type=checkbox] { width: auto; accent-color: var(--primary); }
+.row label { margin: 0; font-size: 13px; color: var(--text); font-weight: 500; }
+
+button {
+  position: relative; isolation: isolate; overflow: hidden;
+  background: linear-gradient(155deg, rgba(34,211,238,0.95), rgba(99,102,241,0.9));
+  color: #05131f; border: 1px solid rgba(255,255,255,0.35);
+  padding: 11px 22px; border-radius: 12px; font-weight: 700; cursor: pointer; font-size: 13px;
+  box-shadow: 0 6px 18px rgba(34,211,238,0.28), inset 0 1px 0 rgba(255,255,255,0.5);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+button::before {
+  content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.55) 46%, transparent 62%);
+  background-size: 220% 100%; background-position: 120% 0; transition: background-position 0.6s ease;
+}
+button:hover::before { background-position: -20% 0; }
+button:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(34,211,238,0.38), inset 0 1px 0 rgba(255,255,255,0.55); }
+
+.muted { color: var(--muted); font-size: 11px; line-height: 1.5; margin-top: 8px; }
+.save-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+#msg { color: var(--success); font-size: 12px; font-weight: 600; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z"/></svg>
+    </div>
+    <div>
+      <h1>PhishGuard <span class="grad">AI</span> Settings</h1>
+      <p class="sub">Extension configuration</p>
+    </div>
+  </header>
+
+  <section class="card">
+    <h2>General</h2>
+    <div class="row"><input type="checkbox" id="enabled"><label for="enabled">Enable real-time scanning</label></div>
+    <div class="row"><input type="checkbox" id="notifications"><label for="notifications">Show notifications on phishing</label></div>
+    <label>Backend API URL</label>
+    <input id="apiBase" placeholder="http://localhost:5000">
+    <p class="muted">Default: http://localhost:5000 (local Flask). Change to your deployed URL.</p>
+  </section>
+
+  <section class="card">
+    <h2>Whitelist &amp; Blacklist</h2>
+    <label>Whitelist (one domain per line)</label>
+    <textarea id="whitelist" placeholder="example.com"></textarea>
+    <label>Blacklist (one domain per line)</label>
+    <textarea id="blacklist" placeholder="bad-site.tk"></textarea>
+  </section>
+
+  <section class="card">
+    <h2>Gmail Scanning</h2>
+    <div class="row"><input type="checkbox" id="gmailScanEnabled"><label for="gmailScanEnabled">Scan incoming Gmail for phishing</label></div>
+    <label>Check interval (minutes)</label>
+    <input id="gmailPollMinutes" type="number" min="1" max="60" placeholder="5">
+    <p class="muted">Connect/disconnect your Gmail account from the popup's Mail tab. Requires a Google OAuth Client ID configured in manifest.json — see README.</p>
+  </section>
+
+  <div class="save-row">
+    <button id="save">Save Settings</button>
+    <span id="msg"></span>
+  </div>
+
+<script src="options.js"></script>
+</body>
+</html>

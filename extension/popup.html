@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PhishGuard AI</title>
+<link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z"/></svg>
+    </div>
+    <div>
+      <h1>PhishGuard <span class="grad">AI</span></h1>
+      <p class="sub">Real-time threat scanner</p>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" id="tab-site-btn" data-tab="site">Site</button>
+    <button class="tab-btn" id="tab-mail-btn" data-tab="mail">Mail</button>
+  </nav>
+
+  <main>
+    <div id="tab-site">
+      <section class="verdict-card" id="verdict-card">
+        <div class="verdict-loading"><div class="spinner"></div><span>Scanning current site...</span></div>
+      </section>
+
+      <section class="meta">
+        <div class="meta-row"><span>Host</span><strong id="host">—</strong></div>
+        <div class="meta-row"><span>Confidence</span><strong id="confidence">—</strong></div>
+      </section>
+
+      <section class="reasons">
+        <h2>Threat explanation</h2>
+        <ul id="reasons"><li class="muted">Waiting for analysis...</li></ul>
+      </section>
+
+      <section class="recommendation" id="rec-section" hidden>
+        <h2>Recommendation</h2>
+        <div class="rec-text" id="rec-text">—</div>
+      </section>
+
+      <section class="actions">
+        <button id="rescan-btn" class="btn">↻ Rescan</button>
+        <button id="report-btn" class="btn btn-warn">⚑ Report</button>
+        <button id="whitelist-btn" class="btn btn-ghost">+ Whitelist</button>
+      </section>
+    </div>
+
+    <div id="tab-mail" hidden>
+      <section class="mail-connect" id="mail-connect">
+        <p class="muted">Connect Gmail to scan incoming mail for spoofed senders and phishing links.</p>
+        <button id="gmail-connect-btn" class="btn">Connect Gmail</button>
+      </section>
+
+      <section class="mail-panel" id="mail-panel" hidden>
+        <div class="meta-row"><span>Status</span><strong>Connected</strong></div>
+        <section class="actions" style="grid-template-columns: 1fr 1fr;">
+          <button id="gmail-poll-btn" class="btn">↻ Check now</button>
+          <button id="gmail-disconnect-btn" class="btn btn-ghost">Disconnect</button>
+        </section>
+        <h2 style="margin-top:12px">Recent scanned emails</h2>
+        <ul id="mail-list" class="mail-list"><li class="muted">No emails scanned yet.</li></ul>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <a href="#" id="open-options">Settings</a>
+    <span id="status-dot" class="dot dot-on" title="Backend status"></span>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "PhishGuard AI Dashboard",
+  "short_name": "PhishGuard",
+  "description": "Scan URLs, review threat history, and manage your whitelist/blacklist.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

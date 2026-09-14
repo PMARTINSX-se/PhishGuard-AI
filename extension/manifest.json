@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "PhishGuard AI The Real-Time Phishing Detector",
+  "version": "1.0.0",
+  "description": "AI-powered phishing detection. Scans every site you visit, analyses URL/SSL/content with ML, warns you before you get hooked.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuSn6NJoTYeh6Napm+IUyH48urxDN3nHjliu/w9/eixv5i8kpezLe34WfanTVk4LQi2IkRNTn14c6fMbQ1ooCJMMeHzZ43VvBUidYHQF42xeREOhfsQPUCknvY91NBt9AR4SRkGWW/Dy0erCDoajSdxV5MdRsUXq4ss+HeWX/SMsIvo+ZZDOTFyg+vvYQpUt+Nt+OtN3l3H5vNZ1xVPJcJAhbhfIQ5lss+yUweUVI761efX8fO5XyiPuWznnO/4IC5wM80AGsMsyFuRQQBzHNUBsPXVTGa7lRCnb+KKPRKIGgBgKJrXFIwykIkXumkZauL9AMFUUD3dlX6d6M5tMuMQIDAQAB",
+  "permissions": ["activeTab", "tabs", "storage", "notifications", "alarms", "identity"],
+  "host_permissions": ["<all_urls>", "https://gmail.googleapis.com/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "PhishGuard AI"
+  },
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "options_page": "options.html"
+}

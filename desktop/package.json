@@ -1,0 +1,29 @@
+{
+  "name": "phishguard-desktop",
+  "version": "1.0.0",
+  "description": "PhishGuard AI desktop tray app — wraps the webapp/ dashboard with a Windows/Mac/Linux system tray icon.",
+  "main": "main.js",
+  "author": "PhishGuard AI",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.phishguard.desktop",
+    "productName": "PhishGuard AI",
+    "files": [
+      "main.js",
+      "preload.js",
+      "../webapp/**/*"
+    ],
+    "directories": { "output": "dist" },
+    "win": { "target": "nsis", "icon": "../webapp/icons/icon-512.png" },
+    "mac": { "target": "dmg", "icon": "../webapp/icons/icon-512.png" },
+    "linux": { "target": ["AppImage", "deb"], "icon": "../webapp/icons/icon-512.png" }
+  }
+}
