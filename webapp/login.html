@@ -1,0 +1,747 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#0b1020" />
+<title>Log in to PhishGuard AI</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0a0e1a; --text: #e7ecf5; --muted: #8b95ad;
+  --primary: #22d3ee; --primary-2: #a78bfa; --danger: #ef4444; --success: #22c55e; --warning: #f59e0b;
+  --glass-fill: rgba(255,255,255,0.055); --glass-fill-strong: rgba(255,255,255,0.09);
+  --glass-border: rgba(255,255,255,0.12); --glass-highlight: rgba(255,255,255,0.28);
+  --glass-shadow: 0 12px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08);
+  --blur: blur(22px) saturate(160%);
+}
+body {
+  background: var(--bg); color: var(--text); min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  display: flex; align-items: center; justify-content: center; padding: 24px; position: relative; overflow-x: hidden;
+}
+body::before {
+  content: ""; position: fixed; inset: -10%;
+  background:
+    radial-gradient(38% 30% at 18% 12%, rgba(34,211,238,0.22), transparent 60%),
+    radial-gradient(32% 26% at 85% 18%, rgba(167,139,250,0.18), transparent 60%),
+    radial-gradient(40% 34% at 30% 92%, rgba(34,197,94,0.10), transparent 60%);
+  filter: blur(10px); animation: drift 26s ease-in-out infinite alternate; z-index: -1; pointer-events: none;
+}
+@keyframes drift { 0% { transform: translate3d(0,0,0) scale(1); } 100% { transform: translate3d(-2%,2%,0) scale(1.06); } }
+
+/* Continuous float lives on a wrapper, not .card itself; .card already animates its own
+   transform for the entrance bounce and interaction pulses, and stacking a second transform
+   animation on the same property/element would just have one clobber the other each frame.
+   Nesting them lets the two compose naturally through the DOM instead. */
+.card-floater {
+  width: 100%; max-width: 440px;
+  animation: cardFloat 5s ease-in-out infinite;
+}
+@keyframes cardFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.card {
+  width: 100%; max-width: 440px; border-radius: 20px; padding: 32px 28px;
+  background: var(--glass-fill); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); position: relative;
+  max-height: calc(100vh - 48px); overflow-y: auto; overscroll-behavior: contain;
+  will-change: transform;
+}
+/* No visible scrollbar. The card rubber-bands at its scroll limits instead (see the wheel/touch
+   handlers below), so a track+thumb would just be visual clutter on a panel this size. */
+.card { scrollbar-width: none; -ms-overflow-style: none; }
+.card::-webkit-scrollbar { display: none; width: 0; height: 0; }
+.card::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 1px; background: linear-gradient(90deg, transparent, var(--glass-highlight), transparent); z-index: 1; }
+
+@keyframes cardBounceIn {
+  0% { opacity: 0; transform: scale(0.82) translateY(36px); }
+  55% { opacity: 1; transform: scale(1.035) translateY(-8px); }
+  75% { transform: scale(0.985) translateY(3px); }
+  90% { transform: scale(1.008) translateY(-1px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes cardPulseBounce {
+  0% { transform: scale(1) translateY(0); }
+  35% { transform: scale(1.018) translateY(-3px); }
+  65% { transform: scale(0.992) translateY(1px); }
+  100% { transform: scale(1) translateY(0); }
+}
+.card.entrance { animation: cardBounceIn 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.card.pulse { animation: cardPulseBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+.logo {
+  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+  background: linear-gradient(135deg, #22d3ee, #6366f1); display: flex; align-items: center; justify-content: center;
+  color: #06101f; box-shadow: 0 0 22px rgba(34,211,238,0.45), inset 0 1px 0 rgba(255,255,255,0.5);
+}
+.logo svg { width: 20px; height: 20px; }
+h1 { font-size: 16px; font-weight: 800; }
+.grad { background: linear-gradient(90deg,#22d3ee,#a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+h2 { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
+.sub { font-size: 13px; color: var(--muted); margin-bottom: 22px; line-height: 1.5; }
+
+.trust-note {
+  font-size: 11px; color: var(--muted); background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.25);
+  border-radius: 10px; padding: 9px 12px; margin-bottom: 18px; line-height: 1.5;
+}
+.trust-note b { color: var(--success); }
+
+/* ---------- Individual / Organization tabs ---------- */
+.type-tabs { display: flex; gap: 6px; padding: 4px; border-radius: 12px; background: rgba(4,8,18,0.45); border: 1px solid var(--glass-border); margin-bottom: 16px; }
+.type-tab {
+  flex: 1; background: none; border: 1px solid transparent; color: var(--muted); font-weight: 600; font-size: 13px;
+  padding: 9px; border-radius: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+  box-shadow: none; margin-top: 0;
+}
+.type-tab::before { display: none; }
+.type-tab:hover:not(.active) { background: rgba(255,255,255,0.05); color: var(--text); }
+.type-tab.active {
+  background: linear-gradient(155deg, rgba(34,211,238,0.95), rgba(99,102,241,0.9)); color: #05131f;
+  box-shadow: 0 4px 14px rgba(34,211,238,0.28); transform: none;
+}
+
+.org-warning {
+  font-size: 11.5px; line-height: 1.5; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.35);
+  color: #fcd34d; border-radius: 10px; padding: 9px 12px; margin-bottom: 16px;
+}
+
+.field-row { display: flex; gap: 12px; }
+.field-row > div { flex: 1; min-width: 0; }
+
+label { display: block; font-size: 12px; color: var(--muted); font-weight: 600; margin: 14px 0 6px; }
+label:first-of-type { margin-top: 0; }
+input, select {
+  width: 100%; padding: 11px 14px; background: rgba(4,8,18,0.45); border: 1px solid var(--glass-border);
+  color: var(--text); border-radius: 10px; font-size: 14px; backdrop-filter: blur(8px);
+  transition: border-color 0.15s, box-shadow 0.15s; font-family: inherit;
+}
+select { appearance: none; -webkit-appearance: none; }
+input:focus, select:focus { outline: none; border-color: rgba(34,211,238,0.55); box-shadow: 0 0 0 3px rgba(34,211,238,0.15); }
+input::-webkit-calendar-picker-indicator { filter: invert(0.7); }
+
+.field-hint { font-size: 10.5px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+
+.checkbox-row { display: flex; align-items: flex-start; gap: 8px; margin: 16px 0 0; font-size: 11.5px; color: var(--muted); font-weight: 400; line-height: 1.5; cursor: pointer; }
+.checkbox-row input { width: auto; margin-top: 2px; accent-color: var(--primary); flex-shrink: 0; }
+
+button {
+  position: relative; isolation: isolate; overflow: hidden; width: 100%;
+  background: linear-gradient(155deg, rgba(34,211,238,0.95), rgba(99,102,241,0.9));
+  color: #05131f; border: 1px solid rgba(255,255,255,0.35);
+  padding: 12px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 14px;
+  box-shadow: 0 6px 18px rgba(34,211,238,0.28), inset 0 1px 0 rgba(255,255,255,0.5);
+  margin-top: 20px; transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+button::before {
+  content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.55) 46%, transparent 62%);
+  background-size: 220% 100%; background-position: 120% 0; transition: background-position 0.6s ease;
+}
+button:hover:not(:disabled)::before { background-position: -20% 0; }
+button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(34,211,238,0.38), inset 0 1px 0 rgba(255,255,255,0.55); }
+button:disabled { opacity: 0.6; cursor: default; }
+
+.toggle-row { text-align: center; margin-top: 18px; font-size: 13px; color: var(--muted); }
+.toggle-row a { color: var(--primary); text-decoration: none; font-weight: 600; cursor: pointer; }
+.toggle-row a:hover { text-decoration: underline; }
+
+.msg { font-size: 12.5px; border-radius: 10px; padding: 10px 12px; margin-top: 16px; line-height: 1.5; display: none; }
+.msg.show { display: block; }
+.msg.error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.35); color: #fca5a5; }
+.msg.success { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.35); color: #86efac; }
+
+.success-panel { text-align: center; padding: 12px 0; }
+.success-panel .check {
+  width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 50%; background: rgba(34,197,94,0.14);
+  border: 1px solid rgba(34,197,94,0.4); display: flex; align-items: center; justify-content: center; font-size: 26px;
+}
+
+.verify-panel { text-align: center; padding: 4px 0; }
+.verify-panel .mail-icon {
+  width: 56px; height: 56px; margin: 0 auto 18px; border-radius: 50%; background: rgba(34,211,238,0.12);
+  border: 1px solid rgba(34,211,238,0.35); display: flex; align-items: center; justify-content: center; font-size: 24px;
+}
+.verify-panel h2 { margin-bottom: 8px; }
+.verify-panel .sub { margin-bottom: 22px; }
+.verify-panel .sub b { color: var(--text); }
+#code-input {
+  text-align: center; font-size: 26px; letter-spacing: 14px; font-weight: 700; padding: 14px 10px 14px 24px;
+}
+.verify-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.btn-secondary {
+  background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--glass-border);
+  box-shadow: none; margin-top: 0;
+}
+.btn-secondary:hover:not(:disabled) { box-shadow: none; background: rgba(255,255,255,0.1); }
+.btn-secondary::before { display: none; }
+.verify-back { text-align: center; margin-top: 18px; font-size: 13px; color: var(--muted); }
+.verify-back a { color: var(--primary); text-decoration: none; font-weight: 600; cursor: pointer; }
+.verify-back a:hover { text-decoration: underline; }
+
+/* ---------- Verifying / Verified transition screens ---------- */
+.status-panel { text-align: center; padding: 28px 0 8px; }
+.status-icon {
+  width: 84px; height: 84px; margin: 0 auto 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; position: relative;
+}
+.status-icon svg { width: 38px; height: 38px; position: relative; z-index: 1; }
+
+.verifying-panel .status-icon {
+  background: radial-gradient(circle, rgba(34,211,238,0.22), transparent 70%);
+  color: var(--primary); animation: iconGlowPulse 1.8s ease-in-out infinite;
+}
+@keyframes iconGlowPulse {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(34,211,238,0.5)); }
+  50% { filter: drop-shadow(0 0 18px rgba(34,211,238,0.85)); }
+}
+.spinner-ring {
+  width: 46px; height: 46px; margin: 0 auto 22px; border-radius: 50%;
+  border: 3px solid rgba(34,211,238,0.18); border-top-color: var(--primary);
+  animation: spin 0.85s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.status-panel h2 { margin-bottom: 8px; }
+.status-panel .sub { margin-bottom: 4px; }
+.status-dots { display: flex; justify-content: center; gap: 6px; margin-top: 18px; }
+.status-dots span {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--primary); opacity: 0.3;
+  animation: dotPulse 1.2s ease-in-out infinite;
+}
+.status-dots span:nth-child(2) { animation-delay: 0.15s; }
+.status-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes dotPulse { 0%, 80%, 100% { opacity: 0.25; transform: scale(0.85); } 40% { opacity: 1; transform: scale(1.15); } }
+
+.verified-panel .status-icon {
+  background: rgba(34,197,94,0.14); border: 1px solid rgba(34,197,94,0.4); color: var(--success);
+  animation: checkPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes checkPop { 0% { transform: scale(0.3); opacity: 0; } 70% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
+.redirect-note { font-size: 12px; color: var(--muted); margin: 20px 0 10px; }
+.redirect-bar { height: 4px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.redirect-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), var(--primary-2)); border-radius: 4px; }
+.redirect-bar-fill.animate { transition: width linear; }
+
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+  <div class="card-floater">
+  <div class="card entrance" id="card">
+    <div class="brand">
+      <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z"/></svg></div>
+      <h1>PhishGuard <span class="grad">AI</span></h1>
+    </div>
+
+    <div id="auth-panel">
+      <h2 id="panel-title">Log in to PhishGuard</h2>
+      <p class="sub" id="panel-sub">Connect your account to sync settings and scan history across the extension and dashboard.</p>
+
+      <div class="trust-note"><b>Local account.</b> This runs entirely on your own backend (this machine). Nothing is sent anywhere else.</div>
+
+      <div class="type-tabs" id="type-tabs" hidden>
+        <button type="button" class="type-tab active" id="type-individual-btn" data-type="individual">&#128100; Individual</button>
+        <button type="button" class="type-tab" id="type-organization-btn" data-type="organization">&#127970; Organization</button>
+      </div>
+
+      <div class="org-warning" id="org-warning" hidden>Use a business email. Public email domains are not accepted.</div>
+
+      <form id="auth-form">
+        <div class="field-row" id="name-row" hidden>
+          <div>
+            <label for="first-name">First Name</label>
+            <input id="first-name" placeholder="John" autocomplete="given-name" />
+          </div>
+          <div>
+            <label for="last-name">Last Name</label>
+            <input id="last-name" placeholder="Doe" autocomplete="family-name" />
+          </div>
+        </div>
+
+        <label for="email">Email</label>
+        <input id="email" type="email" placeholder="you@example.com" autocomplete="email" required />
+
+        <div class="field-row" id="job-company-row" hidden>
+          <div>
+            <label for="job-title">Job Title</label>
+            <input id="job-title" placeholder="Security Analyst" autocomplete="organization-title" />
+          </div>
+          <div>
+            <label for="company" id="company-label">Company</label>
+            <input id="company" placeholder="Company name" autocomplete="organization" />
+          </div>
+        </div>
+
+        <div class="field-row" id="birth-employee-row" hidden>
+          <div>
+            <label for="birth-date">Birth Date</label>
+            <input id="birth-date" type="date" />
+          </div>
+          <div id="employee-count-wrap" hidden>
+            <label for="employee-count">Employee Count</label>
+            <select id="employee-count">
+              <option value="">Select range</option>
+              <option value="1-10">1-10</option>
+              <option value="11-50">11-50</option>
+              <option value="51-200">51-200</option>
+              <option value="201-500">201-500</option>
+              <option value="501-1000">501-1000</option>
+              <option value="1000+">1000+</option>
+            </select>
+          </div>
+        </div>
+
+        <label for="password">Password</label>
+        <input id="password" type="password" placeholder="Enter your password" autocomplete="current-password" required />
+        <p class="field-hint" id="password-hint" hidden>8+ chars, upper, lower, number, symbol.</p>
+
+        <label for="confirm" id="confirm-label" hidden>Confirm Password</label>
+        <input id="confirm" type="password" placeholder="Re-enter your password" autocomplete="new-password" hidden />
+
+        <label class="checkbox-row" id="agree-row" hidden>
+          <input type="checkbox" id="agree" checked />
+          <span>I agree to use PhishGuard responsibly and understand my account and its data live on this device's local backend.</span>
+        </label>
+
+        <button type="submit" id="submit-btn">Login</button>
+      </form>
+
+      <div class="msg" id="msg"></div>
+
+      <div class="toggle-row" id="toggle-row">
+        New to PhishGuard? <a id="toggle-link">Create an account</a>
+      </div>
+    </div>
+
+    <div class="verify-panel" id="verify-panel" hidden>
+      <div class="mail-icon">&#9993;</div>
+      <h2>Check your email</h2>
+      <p class="sub">We've sent a 4-digit code to <b id="verify-email"></b>. Enter it below to finish setting up your account.</p>
+
+      <form id="verify-form">
+        <label for="code-input" style="text-align:left">Verification code</label>
+        <input id="code-input" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="0000" autocomplete="one-time-code" required />
+        <div class="verify-actions">
+          <button type="submit" id="verify-submit-btn">Verify</button>
+          <button type="button" class="btn-secondary" id="resend-btn">Resend code</button>
+        </div>
+      </form>
+
+      <div class="msg" id="verify-msg"></div>
+      <div class="verify-back">Wrong email? <a id="verify-back-link">Back to login</a></div>
+    </div>
+
+    <div class="status-panel verifying-panel" id="verifying-panel" hidden>
+      <div class="status-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z"/></svg>
+      </div>
+      <div class="spinner-ring"></div>
+      <h2>Verifying Your Email</h2>
+      <p class="sub">Please wait while we verify your email address&hellip;</p>
+      <div class="status-dots"><span></span><span></span><span></span></div>
+    </div>
+
+    <div class="status-panel verified-panel" id="verified-panel" hidden>
+      <div class="status-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+      </div>
+      <h2>Email Verified!</h2>
+      <p class="sub">Your email has been successfully verified. Connecting your PhishGuard account&hellip;</p>
+      <button type="button" id="verified-continue-btn">Continue</button>
+      <p class="redirect-note" id="redirect-note">Continuing in 3 seconds&hellip;</p>
+      <div class="redirect-bar"><div class="redirect-bar-fill" id="redirect-bar-fill"></div></div>
+    </div>
+
+    <div class="success-panel" id="success-panel" hidden>
+      <div class="check">&#10003;</div>
+      <h2>Connected</h2>
+      <p class="sub" id="success-sub">You're signed in as <span id="success-email"></span>. You can close this tab now.</p>
+    </div>
+  </div>
+  </div>
+
+<script>
+(function () {
+  // The extension has a fixed ID (see extension/dev-key.pem in the repo) so this page can
+  // reliably reach it via chrome.runtime.sendMessage without needing to know it dynamically.
+  const EXTENSION_ID = "pplmelipbjfhappapcfedppfaoancbhb";
+  const params = new URLSearchParams(location.search);
+  const flowId = params.get("flow_id") || "";
+
+  // ---------- Bouncy card ----------
+  const card = document.getElementById("card");
+
+  function bounceCard() {
+    card.classList.remove("pulse");
+    void card.offsetWidth; // restart the animation even if it's already mid-way
+    card.classList.add("pulse");
+  }
+
+  // No native scrollbar (hidden in CSS). Instead the card rubber-bands like a touch surface
+  // when you scroll past its top/bottom, so running out of content still feels intentional.
+  let overscrollRaf = null;
+  card.addEventListener("wheel", (e) => {
+    const atTop = card.scrollTop <= 0;
+    const atBottom = card.scrollTop + card.clientHeight >= card.scrollHeight - 1;
+    if ((atTop && e.deltaY < 0) || (atBottom && e.deltaY > 0)) {
+      e.preventDefault();
+      const pull = Math.max(-28, Math.min(28, -e.deltaY * 0.22));
+      card.style.transition = "transform 0.08s ease-out";
+      card.style.transform = `translateY(${pull}px)`;
+      cancelAnimationFrame(overscrollRaf);
+      overscrollRaf = requestAnimationFrame(() => {
+        clearTimeout(card._snapBack);
+        card._snapBack = setTimeout(() => {
+          card.style.transition = "transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)";
+          card.style.transform = "translateY(0)";
+        }, 90);
+      });
+    }
+  }, { passive: false });
+
+  let touchStartY = null;
+  card.addEventListener("touchstart", (e) => { touchStartY = e.touches[0].clientY; }, { passive: true });
+  card.addEventListener("touchmove", (e) => {
+    if (touchStartY === null) return;
+    const atTop = card.scrollTop <= 0;
+    const atBottom = card.scrollTop + card.clientHeight >= card.scrollHeight - 1;
+    const dy = e.touches[0].clientY - touchStartY;
+    if ((atTop && dy > 0) || (atBottom && dy < 0)) {
+      const pull = Math.max(-36, Math.min(36, dy * 0.3));
+      card.style.transition = "transform 0.05s linear";
+      card.style.transform = `translateY(${pull}px)`;
+    }
+  }, { passive: true });
+  card.addEventListener("touchend", () => {
+    touchStartY = null;
+    card.style.transition = "transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)";
+    card.style.transform = "translateY(0)";
+  });
+
+  let mode = "login";        // "login" | "signup"
+  let accountType = "individual"; // "individual" | "organization" (signup only)
+
+  const form = document.getElementById("auth-form");
+  const title = document.getElementById("panel-title");
+  const sub = document.getElementById("panel-sub");
+  const submitBtn = document.getElementById("submit-btn");
+  const toggleRow = document.getElementById("toggle-row");
+  const toggleLink = document.getElementById("toggle-link");
+  const confirmInput = document.getElementById("confirm");
+  const confirmLabel = document.getElementById("confirm-label");
+  const msg = document.getElementById("msg");
+  const typeTabs = document.getElementById("type-tabs");
+  const orgWarning = document.getElementById("org-warning");
+  const nameRow = document.getElementById("name-row");
+  const jobCompanyRow = document.getElementById("job-company-row");
+  const birthEmployeeRow = document.getElementById("birth-employee-row");
+  const employeeCountWrap = document.getElementById("employee-count-wrap");
+  const companyLabel = document.getElementById("company-label");
+  const companyInput = document.getElementById("company");
+  const passwordHint = document.getElementById("password-hint");
+  const agreeRow = document.getElementById("agree-row");
+
+  function setAccountType(next) {
+    accountType = next;
+    const isOrg = accountType === "organization";
+    document.getElementById("type-individual-btn").classList.toggle("active", !isOrg);
+    document.getElementById("type-organization-btn").classList.toggle("active", isOrg);
+    orgWarning.hidden = !isOrg;
+    employeeCountWrap.hidden = !isOrg;
+    companyLabel.textContent = isOrg ? "Organization" : "Company";
+    companyInput.placeholder = isOrg ? "Acme Corp" : "Company name";
+    companyInput.required = isOrg;
+    document.getElementById("email").placeholder = isOrg ? "you@company.com" : "you@example.com";
+    bounceCard();
+  }
+  document.getElementById("type-individual-btn").onclick = () => setAccountType("individual");
+  document.getElementById("type-organization-btn").onclick = () => setAccountType("organization");
+
+  function setMode(next) {
+    mode = next;
+    const isSignup = mode === "signup";
+    title.textContent = isSignup ? "Create your PhishGuard account" : "Log in to PhishGuard";
+    sub.textContent = isSignup
+      ? "One account, synced across the extension, dashboard, and desktop app."
+      : "Connect your account to sync settings and scan history across the extension and dashboard.";
+    submitBtn.textContent = isSignup ? "Create account" : "Login";
+
+    typeTabs.hidden = !isSignup;
+    nameRow.hidden = !isSignup;
+    jobCompanyRow.hidden = !isSignup;
+    birthEmployeeRow.hidden = !isSignup;
+    passwordHint.hidden = !isSignup;
+    agreeRow.hidden = !isSignup;
+    confirmInput.hidden = !isSignup;
+    confirmLabel.hidden = !isSignup;
+    confirmInput.required = isSignup;
+    orgWarning.hidden = !isSignup || accountType !== "organization";
+
+    document.getElementById("password").autocomplete = isSignup ? "new-password" : "current-password";
+
+    toggleRow.innerHTML = isSignup
+      ? 'Already have an account? <a id="toggle-link">Log in</a>'
+      : 'New to PhishGuard? <a id="toggle-link">Create an account</a>';
+    document.getElementById("toggle-link").onclick = () => setMode(isSignup ? "login" : "signup");
+    msg.className = "msg";
+    msg.textContent = "";
+    bounceCard();
+  }
+  toggleLink.onclick = () => setMode("signup");
+  if (params.get("mode") === "signup") setMode("signup"); // e.g. the popup's "Create an account" link
+
+  function showMsg(text, kind) {
+    msg.textContent = text;
+    msg.className = "msg show " + kind;
+  }
+
+  function resetSubmitBtn() {
+    submitBtn.disabled = false;
+    submitBtn.textContent = mode === "signup" ? "Create account" : "Login";
+  }
+
+  // ---------- Email verification ----------
+  const verifyForm = document.getElementById("verify-form");
+  const verifyMsg = document.getElementById("verify-msg");
+  const verifySubmitBtn = document.getElementById("verify-submit-btn");
+  const resendBtn = document.getElementById("resend-btn");
+  const codeInput = document.getElementById("code-input");
+  let pendingEmail = "";
+  let resendCooldownTimer = null;
+
+  function showVerifyMsg(text, kind) {
+    verifyMsg.textContent = text;
+    verifyMsg.className = "msg show " + kind;
+  }
+
+  function showVerifyPanel(email) {
+    pendingEmail = email;
+    document.getElementById("auth-panel").hidden = true;
+    document.getElementById("verify-panel").hidden = false;
+    document.getElementById("verify-email").textContent = email;
+    verifyMsg.className = "msg";
+    verifyMsg.textContent = "";
+    codeInput.value = "";
+    codeInput.focus();
+    verifySubmitBtn.disabled = false;
+    verifySubmitBtn.textContent = "Verify";
+    bounceCard();
+  }
+
+  function backToLogin() {
+    document.getElementById("verify-panel").hidden = true;
+    document.getElementById("auth-panel").hidden = false;
+    setMode("login");
+  }
+  document.getElementById("verify-back-link").onclick = (e) => { e.preventDefault(); backToLogin(); };
+
+  codeInput.addEventListener("input", () => {
+    codeInput.value = codeInput.value.replace(/\D/g, "").slice(0, 4);
+  });
+
+  const verifyingPanel = document.getElementById("verifying-panel");
+  const verifiedPanel = document.getElementById("verified-panel");
+  const redirectBarFill = document.getElementById("redirect-bar-fill");
+  const redirectNote = document.getElementById("redirect-note");
+  let redirectTimer = null;
+
+  function showVerifyingPanel() {
+    document.getElementById("verify-panel").hidden = true;
+    verifyingPanel.hidden = false;
+    bounceCard();
+  }
+
+  function showVerifiedPanel(email, token, firstName) {
+    verifyingPanel.hidden = true;
+    verifiedPanel.hidden = false;
+    bounceCard();
+
+    let secondsLeft = 3;
+    redirectNote.textContent = `Continuing in ${secondsLeft} seconds…`;
+    redirectBarFill.classList.remove("animate");
+    redirectBarFill.style.width = "0%";
+    // Force reflow so the width reset above isn't coalesced with the animated width below.
+    void redirectBarFill.offsetWidth;
+    redirectBarFill.classList.add("animate");
+    redirectBarFill.style.transitionDuration = "3s";
+    redirectBarFill.style.width = "100%";
+
+    const finish = () => {
+      clearInterval(redirectTimer);
+      redirectTimer = null;
+      verifiedPanel.hidden = true;
+      onAuthed(email, token, firstName);
+    };
+    document.getElementById("verified-continue-btn").onclick = finish;
+
+    clearInterval(redirectTimer);
+    redirectTimer = setInterval(() => {
+      secondsLeft -= 1;
+      if (secondsLeft <= 0) {
+        finish();
+      } else {
+        redirectNote.textContent = `Continuing in ${secondsLeft} seconds…`;
+      }
+    }, 1000);
+  }
+
+  verifyForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const code = codeInput.value.trim();
+    if (code.length !== 4) {
+      showVerifyMsg("Enter the 4-digit code.", "error");
+      return;
+    }
+    verifySubmitBtn.disabled = true;
+    verifySubmitBtn.textContent = "Verifying…";
+    showVerifyingPanel();
+    // Keep the spinner up for a minimum stretch so it doesn't just flash on a fast local
+    // network. The visual weight matches how long verification "feels" like it should take.
+    const minWait = new Promise((resolve) => setTimeout(resolve, 700));
+    try {
+      const [resp] = await Promise.all([
+        fetch("/api/auth/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: pendingEmail, code }),
+        }),
+        minWait,
+      ]);
+      const data = await resp.json();
+      if (!resp.ok) {
+        verifyingPanel.hidden = true;
+        document.getElementById("verify-panel").hidden = false;
+        bounceCard();
+        showVerifyMsg(data.error || "Couldn't verify that code.", "error");
+        verifySubmitBtn.disabled = false;
+        verifySubmitBtn.textContent = "Verify";
+        return;
+      }
+      showVerifiedPanel(data.email, data.token, data.first_name || "");
+    } catch (err) {
+      verifyingPanel.hidden = true;
+      document.getElementById("verify-panel").hidden = false;
+      bounceCard();
+      showVerifyMsg("Couldn't reach the backend. Is it running?", "error");
+      verifySubmitBtn.disabled = false;
+      verifySubmitBtn.textContent = "Verify";
+    }
+  });
+
+  resendBtn.addEventListener("click", async () => {
+    resendBtn.disabled = true;
+    try {
+      const resp = await fetch("/api/auth/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: pendingEmail }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        showVerifyMsg(data.error || "Couldn't resend the code.", "error");
+        resendBtn.disabled = false;
+        return;
+      }
+      showVerifyMsg("A new code was sent.", "success");
+      let secondsLeft = 30;
+      resendBtn.textContent = `Resend code (${secondsLeft}s)`;
+      clearInterval(resendCooldownTimer);
+      resendCooldownTimer = setInterval(() => {
+        secondsLeft -= 1;
+        if (secondsLeft <= 0) {
+          clearInterval(resendCooldownTimer);
+          resendBtn.textContent = "Resend code";
+          resendBtn.disabled = false;
+        } else {
+          resendBtn.textContent = `Resend code (${secondsLeft}s)`;
+        }
+      }, 1000);
+    } catch (err) {
+      showVerifyMsg("Couldn't reach the backend. Is it running?", "error");
+      resendBtn.disabled = false;
+    }
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+
+    if (mode === "signup") {
+      if (password !== confirmInput.value) {
+        showMsg("Passwords don't match.", "error");
+        return;
+      }
+      if (!document.getElementById("agree").checked) {
+        showMsg("Please agree to continue.", "error");
+        return;
+      }
+    }
+
+    const payload = { email, password };
+    if (mode === "signup") {
+      Object.assign(payload, {
+        account_type: accountType,
+        first_name: document.getElementById("first-name").value.trim(),
+        last_name: document.getElementById("last-name").value.trim(),
+        job_title: document.getElementById("job-title").value.trim(),
+        company: companyInput.value.trim(),
+        birth_date: document.getElementById("birth-date").value,
+        employee_count: accountType === "organization" ? document.getElementById("employee-count").value : "",
+      });
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = mode === "signup" ? "Creating account…" : "Logging in…";
+    try {
+      const resp = await fetch(`/api/auth/${mode === "signup" ? "signup" : "login"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        if (data.pending_verification) {
+          resetSubmitBtn();
+          showVerifyPanel(data.email);
+          return;
+        }
+        showMsg(data.error || "Something went wrong.", "error");
+        resetSubmitBtn();
+        return;
+      }
+      if (data.pending_verification) {
+        resetSubmitBtn();
+        showVerifyPanel(data.email);
+        return;
+      }
+      onAuthed(data.email, data.token, data.first_name || "");
+    } catch (err) {
+      showMsg("Couldn't reach the backend. Is it running?", "error");
+      resetSubmitBtn();
+    }
+  });
+
+  function onAuthed(email, token, firstName) {
+    document.getElementById("auth-panel").hidden = true;
+    document.getElementById("success-panel").hidden = false;
+    document.getElementById("success-email").textContent = email;
+    bounceCard();
+
+    // Hand the session back to the extension. The extension closes this tab once it receives
+    // this; if the tab gets closed by the user before this ever fires, the extension's own
+    // tabs.onRemoved listener treats that as "the user did not approve access."
+    if (window.chrome && chrome.runtime && chrome.runtime.sendMessage) {
+      try {
+        chrome.runtime.sendMessage(EXTENSION_ID, { type: "PHISHGUARD_AUTH_SUCCESS", flow_id: flowId, token, email, first_name: firstName || "" });
+      } catch (err) { /* extension not installed or reachable; success panel still shows */ }
+    }
+  }
+})();
+</script>
+</body>
+</html>

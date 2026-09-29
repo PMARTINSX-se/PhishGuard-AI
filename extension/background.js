@@ -1,4 +1,4 @@
-// PhishGuard AI — MV3 Background Service Worker
+// PhishGuard AI; MV3 Background Service Worker
 // Monitors active tabs, sends URLs to the local Flask ML backend, caches verdicts,
 // updates the toolbar badge, fires notifications on confirmed phishing.
 
@@ -17,6 +17,7 @@ async function getSettings() {
     blacklist: [],
     gmailScanEnabled: true,
     gmailPollMinutes: 5,
+    deepScanEnabled: true,
   };
 }
 
@@ -27,6 +28,9 @@ async function saveScanHistory(entry) {
 }
 
 function setBadge(tabId, verdict) {
+  // A manual scan (e.g. the popup's "Scan a URL" tool) has no associated tab; omitting tabId
+  // would set the toolbar's *default* badge instead, clobbering whatever the active tab shows.
+  if (tabId == null) return;
   const map = {
     safe:       { text: "✓",   color: "#16a34a" },
     suspicious: { text: "!",   color: "#f59e0b" },
@@ -38,47 +42,52 @@ function setBadge(tabId, verdict) {
   chrome.action.setBadgeBackgroundColor({ color: b.color, tabId });
 }
 
-async function notifyPhishing(url, riskScore) {
+async function notifyPhishing(url, riskScore, reasons = []) {
   const settings = await getSettings();
   if (!settings.notifications) return;
+  const host = new URL(url).hostname;
+  // chrome.notifications' "list" type renders each reason as its own bulleted line right in the
+  // OS toast; that's the explanation, not just a bare score. "items" is capped at ~4 visible
+  // lines by Chrome itself. IMPORTANT: on Windows, the toast renderer used for "list"-type
+  // notifications drops the "message" field entirely once "items" are present; only the title
+  // and the item list actually render. The host must therefore go in the title, not the message,
+  // or it silently never appears on screen (it still shows fine for "basic"-type notifications,
+  // which is why this only broke once reasons existed).
+  const items = reasons.slice(0, 4).map((r) => ({ title: "•", message: r }));
   chrome.notifications.create({
-    type: "basic",
+    type: items.length ? "list" : "basic",
     iconUrl: "icons/icon128.png",
-    title: "⚠ Phishing site detected",
-    message: `${new URL(url).hostname} — risk ${riskScore}/100. PhishGuard recommends leaving immediately.`,
+    title: `⚠ Phishing detected: ${host}`,
+    message: `Risk ${riskScore}/100; PhishGuard recommends leaving immediately.`,
+    items: items.length ? items : undefined,
     priority: 2,
   });
 }
 
 // ---------- page-content signals (from content.js) ----------
-// content.js runs on every page at document_idle and sends these for free — no network round
+// content.js runs on every page at document_idle and sends these for free; no network round
 // trip needed, unlike live_analyzer.py's fetch-based content check on the backend. Used to
 // sharpen the already-cached automatic scan result for this tab, not to trigger a new scan.
+//
+// Deliberately narrow: only crossDomainPasswordForm (a password field inside a form that itself
+// posts to a different domain) counts. Earlier versions also bumped on "has a password field"
+// and "some form on the page submits externally" independently of each other; both are
+// extremely common on completely ordinary sites (any login page; any newsletter/contact widget
+// via Mailchimp/Formspree/Google Forms/Netlify Forms) and were flagging huge numbers of
+// legitimate sites as phishing/suspicious just from that combination existing anywhere on the
+// page, unrelated to each other. Don't reintroduce those without requiring real co-location.
 function pageFeatureBump(features) {
-  let delta = 0;
-  const reasons = [];
-  if (features.hasPasswordField && features.externalFormSubmissions > 0) {
-    delta += 30;
-    reasons.push("Page has a password field whose form submits to a different domain — classic credential-harvesting pattern.");
-  } else if (features.hasPasswordField) {
-    delta += 8;
-    reasons.push("Page contains a password input field.");
-  }
-  if (features.externalFormSubmissions > 0 && !features.hasPasswordField) {
-    delta += 10;
-    reasons.push(`${features.externalFormSubmissions} form(s) on this page submit to a different domain.`);
-  }
-  if (features.iframeCount >= 3) {
-    delta += 5;
-    reasons.push(`Page embeds ${features.iframeCount} iframes — sometimes used to hide malicious content.`);
-  }
-  return { delta: Math.min(40, delta), reasons };
+  if (!features.crossDomainPasswordForm) return { delta: 0, reasons: [] };
+  return {
+    delta: 35,
+    reasons: ["Page has a password field inside a form that submits to a different domain; classic credential-harvesting pattern."],
+  };
 }
 
 async function handlePageFeatures(features, tabId) {
   if (!features?.url) return;
   const cached = cache.get(features.url);
-  if (!cached) return; // scan hasn't landed in cache yet — nothing to sharpen
+  if (!cached) return; // scan hasn't landed in cache yet; nothing to sharpen
 
   const { delta, reasons } = pageFeatureBump(features);
   if (delta === 0) return;
@@ -92,12 +101,12 @@ async function handlePageFeatures(features, tabId) {
   cache.set(features.url, { result, ts: cached.ts });
   if (tabId != null) setBadge(tabId, result.verdict);
   if (result.verdict === "phishing" && cached.result.verdict !== "phishing") {
-    notifyPhishing(features.url, result.risk_score);
+    notifyPhishing(features.url, result.risk_score, result.reasons);
   }
 }
 
 // ---------- core scan ----------
-// deep=true requests the backend's live network checks (TLS/WHOIS/redirect/content) — slow
+// deep=true requests the backend's live network checks (TLS/WHOIS/redirect/content); slow
 // (a few seconds), so it's only ever passed from manual/important triggers (popup Rescan
 // button, webapp scanner), never from the automatic per-tab-visit scans below, which always
 // call this with deep left false so browsing never feels slowed down.
@@ -119,11 +128,11 @@ async function scanUrl(url, tabId, deep = false) {
   if (settings.blacklist.includes(host)) {
     const r = { verdict: "phishing", risk_score: 100, reasons: ["Blacklisted by user"], recommendation: "Avoid" };
     setBadge(tabId, "phishing");
-    notifyPhishing(url, 100);
+    notifyPhishing(url, 100, r.reasons);
     return r;
   }
 
-  // Cache — a deep scan always hits the network fresh (the cached entry may only be a fast
+  // Cache; a deep scan always hits the network fresh (the cached entry may only be a fast
   // static-only result), but its result still gets written back to the cache afterward so
   // subsequent fast lookups on this tab benefit from the sharper verdict too.
   if (!deep) {
@@ -145,7 +154,7 @@ async function scanUrl(url, tabId, deep = false) {
     cache.set(url, { result, ts: Date.now() });
     setBadge(tabId, result.verdict);
     saveScanHistory({ url, host, ...result, ts: Date.now() });
-    if (result.verdict === "phishing") notifyPhishing(url, result.risk_score);
+    if (result.verdict === "phishing") notifyPhishing(url, result.risk_score, result.reasons);
     return result;
   } catch (e) {
     console.warn("[PhishGuard] backend unreachable, using local heuristic", e);
@@ -180,13 +189,13 @@ function localHeuristic(url) {
 
 // ---------- Gmail scanning ----------
 // Uses a real OAuth authorization-code flow (via chrome.identity.launchWebAuthFlow) rather than
-// chrome.identity.getAuthToken — the latter's silent token refresh only works reliably in Google
+// chrome.identity.getAuthToken; the latter's silent token refresh only works reliably in Google
 // Chrome (it leans on Chrome's built-in Google-account integration) and fails non-interactively
 // on Edge/Brave, forcing a reconnect far too often. This flow gets a refresh_token we manage
 // ourselves, so it behaves the same on every Chromium browser.
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
 
-// Public OAuth client ID (not secret — safe to ship in extension code). Create this as a
+// Public OAuth client ID (not secret; safe to ship in extension code). Create this as a
 // "Web application" OAuth client in Google Cloud Console; see README for exact steps.
 const GMAIL_CLIENT_ID = "863168750615-02oljc45jdtc7ltc5g6qou4qplu33h8a.apps.googleusercontent.com";
 const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
@@ -292,16 +301,32 @@ function b64urlDecode(data) {
   }
 }
 
-function extractLinksFromHtml(html) {
+// Decode the handful of HTML entities that show up inside href attributes; without this, a
+// query string like "a=1&amp;b=2" is scored as-is and looks messier (more special characters)
+// than the real URL a browser would actually open.
+function decodeHtmlEntities(s) {
+  return s.replace(/&amp;/gi, "&").replace(/&#0?38;/g, "&").replace(/&quot;/gi, '"').replace(/&#0?39;/g, "'");
+}
+
+// Only real, clickable links count: <a href="...">. The previous version matched every href
+// (including <link rel="stylesheet"> fonts) plus every bare URL anywhere in the HTML (image
+// sources, CSS url(), tracking pixels), so authenticated emails from Kuda/Railway were being
+// scored on their Google Fonts stylesheet and CDN image URLs; resources nobody ever clicks.
+// Bare-URL scanning is kept only for plain-text bodies, where there are no tags to parse.
+function extractLinksFromHtml(html, isPlainText = false) {
   const links = new Set();
-  const hrefRe = /href=["']([^"']+)["']/gi;
-  let m;
-  while ((m = hrefRe.exec(html))) {
-    if (/^https?:\/\//i.test(m[1])) links.add(m[1]);
+  if (isPlainText) {
+    const bareRe = /https?:\/\/[^\s"'<>)]+/gi;
+    let b;
+    while ((b = bareRe.exec(html))) links.add(b[0]);
+  } else {
+    const anchorRe = /<a\b[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
+    let m;
+    while ((m = anchorRe.exec(html))) {
+      const href = decodeHtmlEntities((m[1] ?? m[2] ?? "").trim());
+      if (/^https?:\/\//i.test(href)) links.add(href);
+    }
   }
-  const bareRe = /https?:\/\/[^\s"'<>)]+/gi;
-  let b;
-  while ((b = bareRe.exec(html))) links.add(b[0]);
   return Array.from(links).slice(0, 25);
 }
 
@@ -323,7 +348,7 @@ function parseGmailMessage(msg) {
     if (p.mimeType === "text/html") html += decoded;
     else if (p.mimeType === "text/plain") text += decoded;
   });
-  const links = extractLinksFromHtml(html || text);
+  const links = html ? extractLinksFromHtml(html) : extractLinksFromHtml(text, true);
 
   return {
     message_id: msg.id,
@@ -379,11 +404,15 @@ function localEmailHeuristic(parsed) {
 async function notifyPhishingEmail(result) {
   const settings = await getSettings();
   if (!settings.notifications) return;
+  const items = (result.reasons || []).slice(0, 4).map((r) => ({ title: "•", message: r }));
+  // Same fix as notifyPhishing() above: Windows drops "message" for list-type notifications once
+  // "items" exist, so the sender must be in the title to actually be visible on screen.
   chrome.notifications.create(`pg-mail-${result.message_id}`, {
-    type: "basic",
+    type: items.length ? "list" : "basic",
     iconUrl: "icons/icon128.png",
-    title: "⚠ Suspicious email detected",
-    message: `${result.from || "Unknown sender"} — "${result.subject || "(no subject)"}" — risk ${result.risk_score}/100.`,
+    title: `⚠ Suspicious email: ${result.from || "Unknown sender"}`,
+    message: `"${result.subject || "(no subject)"}"; risk ${result.risk_score}/100.`,
+    items: items.length ? items : undefined,
     priority: 2,
   });
 }
@@ -394,12 +423,27 @@ async function saveEmailScan(result) {
   await chrome.storage.local.set({ gmailScans: gmailScans.slice(0, 100) });
 }
 
+// Bump this whenever email link extraction or scoring changes in a way that makes earlier
+// verdicts wrong. Emails already scanned are remembered (gmailSeenIds) and never looked at
+// again, so without a reset, false positives from an older version would stay in the Mail tab
+// forever. On a version change we clear that memory once, so recent mail is re-scanned.
+const EMAIL_SCAN_LOGIC_VERSION = 2;
+
+async function resetEmailScansIfLogicChanged() {
+  const { emailScanLogicVersion } = await chrome.storage.local.get("emailScanLogicVersion");
+  if (emailScanLogicVersion === EMAIL_SCAN_LOGIC_VERSION) return;
+  await chrome.storage.local.remove(["gmailSeenIds", "gmailScans"]);
+  await chrome.storage.local.set({ emailScanLogicVersion: EMAIL_SCAN_LOGIC_VERSION });
+}
+
 async function pollGmail() {
   const settings = await getSettings();
   if (!settings.gmailScanEnabled) return;
 
   const token = await getValidAccessToken();
-  if (!token) return; // not connected yet — user must click "Connect Gmail" in the popup
+  if (!token) return; // not connected yet user must click "Connect Gmail" in the popup
+
+  await resetEmailScansIfLogicChanged();
 
   try {
     const listResp = await fetch(
@@ -443,7 +487,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
 
 chrome.tabs.onActivated.addListener(async ({ tabId }) => {
   // The tab can close (or navigate away) between the activation event firing and this async
-  // lookup running — chrome.tabs.get then rejects with "No tab with id: N", which otherwise
+  // lookup running chrome.tabs.get then rejects with "No tab with id: N", which otherwise
   // surfaces as an uncaught promise rejection in the extension's Errors log. Harmless, just noise.
   try {
     const tab = await chrome.tabs.get(tabId);
@@ -451,6 +495,83 @@ chrome.tabs.onActivated.addListener(async ({ tabId }) => {
   } catch (e) {
     console.debug("[PhishGuard] tab no longer available for scan:", e.message);
   }
+});
+
+// ---------- PhishGuard account (local-only login/signup) ----------
+// Separate from Gmail OAuth above; this is a plain email/password account against the same
+// local backend, matching the "Connect with PhishGuard" UX pattern of hosted competitors, but
+// entirely local: the login/signup page is served by the user's own backend (GET /login), no
+// data leaves this machine. State survives service-worker restarts via chrome.storage.local,
+// since MV3 can kill and restart the worker between the tab being opened and the user finishing.
+async function connectPhishGuardAccount(mode) {
+  const settings = await getSettings();
+  const flowId = crypto.randomUUID();
+  const modeParam = mode === "signup" ? "&mode=signup" : "";
+  const tab = await chrome.tabs.create({ url: `${settings.apiBase}/login?flow_id=${flowId}${modeParam}` });
+  await chrome.storage.local.set({
+    pgPendingFlow: { flowId, tabId: tab.id, startedAt: Date.now() },
+    pgAuthError: null,
+  });
+}
+
+// Backfills firstName onto a pgAccount stored before that field existed (e.g. a session from
+// before this feature shipped); otherwise the popup's greeting silently has no name to show
+// until the user logs out and back in. Best-effort: on any failure, the caller just gets the
+// account as-is.
+async function ensureAccountFirstName(pgAccount) {
+  if (!pgAccount || pgAccount.firstName || !pgAccount.token) return pgAccount;
+  const settings = await getSettings();
+  try {
+    const resp = await fetch(`${settings.apiBase}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${pgAccount.token}` },
+    });
+    if (!resp.ok) return pgAccount;
+    const data = await resp.json();
+    const updated = { ...pgAccount, firstName: data.first_name || "" };
+    await chrome.storage.local.set({ pgAccount: updated });
+    return updated;
+  } catch (e) {
+    return pgAccount;
+  }
+}
+
+async function logoutPhishGuardAccount() {
+  const { pgAccount } = await chrome.storage.local.get("pgAccount");
+  const settings = await getSettings();
+  if (pgAccount?.token) {
+    try {
+      await fetch(`${settings.apiBase}/api/auth/logout`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${pgAccount.token}` },
+      });
+    } catch (e) { /* best-effort; still clear locally even if the backend call fails */ }
+  }
+  await chrome.storage.local.remove("pgAccount");
+}
+
+// A tab closing before the login page ever messages back means the user backed out without
+// completing sign-in; surfaced in the popup as "The user did not approve access."
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+  const { pgPendingFlow } = await chrome.storage.local.get("pgPendingFlow");
+  if (pgPendingFlow && pgPendingFlow.tabId === tabId) {
+    await chrome.storage.local.set({ pgPendingFlow: null, pgAuthError: "The user did not approve access." });
+  }
+});
+
+chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
+  (async () => {
+    if (msg.type !== "PHISHGUARD_AUTH_SUCCESS") return;
+    const { pgPendingFlow } = await chrome.storage.local.get("pgPendingFlow");
+    if (!pgPendingFlow || pgPendingFlow.flowId !== msg.flow_id) return; // stray/replayed message
+    await chrome.storage.local.set({
+      pgAccount: { email: msg.email, token: msg.token, firstName: msg.first_name || "" },
+      pgPendingFlow: null,
+      pgAuthError: null,
+    });
+    if (sender.tab?.id) chrome.tabs.remove(sender.tab.id).catch(() => {});
+    sendResponse({ received: true });
+  })();
+  return true; // async
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -489,6 +610,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     getValidAccessToken().then((token) => sendResponse({ connected: !!token }));
     return true;
   }
+  if (msg.type === "PG_CONNECT") {
+    connectPhishGuardAccount(msg.mode).then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (msg.type === "PG_LOGOUT") {
+    logoutPhishGuardAccount().then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (msg.type === "PG_ACCOUNT_STATUS") {
+    chrome.storage.local.get(["pgAccount", "pgAuthError"]).then(async ({ pgAccount, pgAuthError }) => {
+      const account = await ensureAccountFirstName(pgAccount);
+      sendResponse({ account: account || null, error: pgAuthError || null });
+      if (pgAuthError) chrome.storage.local.set({ pgAuthError: null }); // shown once, then cleared
+    });
+    return true;
+  }
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -506,7 +643,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     await chrome.storage.local.set({
       settings: {
         enabled: true, notifications: true, apiBase: API_BASE, whitelist: [], blacklist: [],
-        gmailScanEnabled: true, gmailPollMinutes: 5,
+        gmailScanEnabled: true, gmailPollMinutes: 5, deepScanEnabled: true,
       },
     });
   }

@@ -1,8 +1,8 @@
 """
-PhishGuard AI — Live Network Deep-Check
+PhishGuard AI; Live Network Deep-Check
 Adds real network signals on top of the static URL-string model: TLS certificate age/validity,
 WHOIS domain age, redirect-chain following, and live page-content analysis (credential forms,
-brand impersonation). Deliberately NOT run on every automatic tab-visit scan — it's slow (network
+brand impersonation). Deliberately NOT run on every automatic tab-visit scan; it's slow (network
 round trips) and only wired up for manual/important scans (Rescan button, webapp scanner, email
 links). See classify(url, deep=True) in app.py.
 """
@@ -21,15 +21,17 @@ from bs4 import BeautifulSoup
 
 from feature_extractor import BRAND_DOMAINS, registrable_domain
 
-TOTAL_BUDGET_S = 8
+TOTAL_BUDGET_S = 12  # WHOIS lookups are frequently slow; too tight a budget starves the other
+                      # checks into false "timed out" reads even though they'd finish in <1s alone
 NEW_CERT_DAYS = 14          # cert issued this recently is a strong phishing signal
 NEW_DOMAIN_DAYS = 30        # domain registered this recently is a strong phishing signal
 YOUNG_DOMAIN_DAYS = 180     # softer signal
+ESTABLISHED_DOMAIN_DAYS = 730  # domain this old, with clean TLS/content, is strong trust evidence
 
 
 # ---------- SSRF guard ----------
 def _is_public_host(hostname: str) -> bool:
-    """Reject scanning anything that resolves to a private/loopback/link-local/reserved address —
+    """Reject scanning anything that resolves to a private/loopback/link-local/reserved address;
     this backend fetches whatever URL a user pastes, a visited page links to, or an email
     contains, so it must never become a proxy for probing internal networks or cloud metadata
     endpoints (169.254.169.254 etc)."""
@@ -79,7 +81,20 @@ def check_tls(host: str, timeout: float = 4.0) -> dict:
 
 
 # ---------- WHOIS domain age ----------
-def check_domain_age(domain: str, timeout: float = 4.0) -> dict:
+# WHOIS servers are old, unindexed infrastructure; frequently slow (multi-second) or rate-
+# limiting, so the same domain looked up repeatedly (very common: multiple pages on one site,
+# repeat visits) shouldn't re-pay that cost every time. Domain creation dates never change, so
+# this cache has no real staleness risk; a generous TTL just bounds memory growth over a long
+# backend uptime, not correctness.
+_DOMAIN_AGE_CACHE: dict[str, tuple[dict, float]] = {}
+_DOMAIN_AGE_CACHE_TTL_S = 24 * 3600
+
+
+def check_domain_age(domain: str, timeout: float = 6.0) -> dict:
+    cached = _DOMAIN_AGE_CACHE.get(domain)
+    if cached and time.time() - cached[1] < _DOMAIN_AGE_CACHE_TTL_S:
+        return cached[0]
+
     def _lookup():
         w = whois.whois(domain)
         created = w.creation_date
@@ -92,11 +107,15 @@ def check_domain_age(domain: str, timeout: float = 4.0) -> dict:
         created = fut.result(timeout=timeout)
 
     if not created:
-        return {"ok": True, "age_days": None}
-    if created.tzinfo is None:
-        created = created.replace(tzinfo=timezone.utc)
-    age_days = (datetime.now(timezone.utc) - created).days
-    return {"ok": True, "age_days": age_days, "created": str(created)}
+        result = {"ok": True, "age_days": None}
+    else:
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        age_days = (datetime.now(timezone.utc) - created).days
+        result = {"ok": True, "age_days": age_days, "created": str(created)}
+
+    _DOMAIN_AGE_CACHE[domain] = (result, time.time())
+    return result
 
 
 # ---------- redirect chain + page content ----------
@@ -155,11 +174,15 @@ def live_check(url: str) -> dict:
     bullets = []
     signals = {}
     score_delta = 0
+    # True only for an actual adverse finding (new domain, cross-domain form, brand mismatch,
+    # ...); NOT for a benign "couldn't verify this check" (network hiccup, bot-blocked fetch,
+    # WHOIS timeout). Only a real finding should block the trust boost below.
+    hard_negative = False
 
     if not _is_public_host(host):
         return {
             "signals": {"skipped": True, "reason": "not a public host"},
-            "bullets": [{"level": "ok", "text": "Live checks skipped — target is not a publicly reachable host."}],
+            "bullets": [{"level": "ok", "text": "Live checks skipped; target is not a publicly reachable host."}],
             "score_delta": 0,
         }
 
@@ -182,7 +205,7 @@ def live_check(url: str) -> dict:
             else:
                 results[name] = {"ok": False, "error": "timed out"}
 
-    # --- domain age (computed first — TLS cert freshness is only meaningful relative to it) ---
+    # --- domain age (computed first; TLS cert freshness is only meaningful relative to it) ---
     age = results["domain_age"]
     signals["domain_age"] = age
     domain_age_days = age.get("age_days") if age.get("ok") else None
@@ -192,13 +215,17 @@ def live_check(url: str) -> dict:
     if domain_age_days is not None:
         if domain_is_new:
             score_delta += 25
-            bullets.append({"level": "critical", "text": f"Domain registered only {domain_age_days} day(s) ago — brand-new domains are heavily favored by phishing campaigns."})
+            hard_negative = True
+            bullets.append({"level": "critical", "short": f"New domain ({domain_age_days}d)",
+                             "text": f"Domain registered only {domain_age_days} day(s) ago; brand-new domains are heavily favored by phishing campaigns."})
         elif domain_age_days <= YOUNG_DOMAIN_DAYS:
             score_delta += 10
-            bullets.append({"level": "warning", "text": f"Domain is only {domain_age_days} days old."})
+            hard_negative = True
+            bullets.append({"level": "warning", "short": f"Young domain ({domain_age_days}d)",
+                             "text": f"Domain is only {domain_age_days} days old."})
 
     # --- TLS ---
-    # A freshly-issued cert on its own means almost nothing — modern CAs (Let's Encrypt etc.)
+    # A freshly-issued cert on its own means almost nothing; modern CAs (Let's Encrypt etc.)
     # issue certs valid for only ~90 days, so every HTTPS site renews on a rolling basis
     # regardless of age. It only becomes a meaningful signal alongside a young/unverifiable
     # domain (a legit multi-year-old domain renewing its cert is normal and gets no flag at all).
@@ -208,15 +235,19 @@ def live_check(url: str) -> dict:
         if tls["age_days"] <= NEW_CERT_DAYS and not domain_is_old:
             if domain_is_new:
                 score_delta += 15
-                bullets.append({"level": "critical", "text": f"TLS certificate issued only {tls['age_days']} day(s) ago on a domain registered only {domain_age_days} day(s) ago — fresh cert + fresh domain is a strong phishing-kit pattern."})
+                hard_negative = True
+                bullets.append({"level": "critical", "short": "New cert + new domain",
+                                 "text": f"TLS certificate issued only {tls['age_days']} day(s) ago on a domain registered only {domain_age_days} day(s) ago; fresh cert + fresh domain is a strong phishing-kit pattern."})
             else:
                 score_delta += 8
-                bullets.append({"level": "warning", "text": f"TLS certificate issued only {tls['age_days']} day(s) ago and domain age couldn't be verified."})
+                bullets.append({"level": "warning", "short": "New TLS cert, domain age unknown",
+                                 "text": f"TLS certificate issued only {tls['age_days']} day(s) ago and domain age couldn't be verified."})
         if tls["days_until_expiry"] < 0:
             score_delta += 10
-            bullets.append({"level": "warning", "text": "TLS certificate has expired."})
+            hard_negative = True
+            bullets.append({"level": "warning", "short": "Expired TLS cert", "text": "TLS certificate has expired."})
     else:
-        bullets.append({"level": "warning", "text": "Could not establish a secure connection to verify the certificate."})
+        bullets.append({"level": "warning", "short": "TLS connection failed", "text": "Could not establish a secure connection to verify the certificate."})
         score_delta += 8
 
     # --- redirect + content ---
@@ -225,21 +256,46 @@ def live_check(url: str) -> dict:
     if content.get("ok"):
         if content.get("domain_hopped"):
             score_delta += 12
-            bullets.append({"level": "warning", "text": f"URL redirects to a different domain ({content['final_url']})."})
+            hard_negative = True
+            bullets.append({"level": "warning", "short": "Redirects to another domain",
+                             "text": f"URL redirects to a different domain ({content['final_url']})."})
         if content.get("has_password_field"):
             score_delta += 10
-            bullets.append({"level": "warning", "text": "Page contains a password input field."})
+            hard_negative = True
+            bullets.append({"level": "warning", "short": "Has a password field", "text": "Page contains a password input field."})
         if content.get("cross_domain_form"):
             score_delta += 25
-            bullets.append({"level": "critical", "text": "Page has a form that submits data to a different domain than the page itself — classic credential-harvesting pattern."})
+            hard_negative = True
+            bullets.append({"level": "critical", "short": "Form submits cross-domain",
+                             "text": "Page has a form that submits data to a different domain than the page itself; classic credential-harvesting pattern."})
         if content.get("brand_mismatch"):
             bm = content["brand_mismatch"]
             score_delta += 25
-            bullets.append({"level": "critical", "text": f"Page title references '{bm['brand']}' but isn't hosted on {bm['real_domain']} — likely impersonation."})
+            hard_negative = True
+            bullets.append({"level": "critical", "short": f"Impersonating {bm['brand']}",
+                             "text": f"Page title references '{bm['brand']}' but isn't hosted on {bm['real_domain']}; likely impersonation."})
     else:
-        bullets.append({"level": "warning", "text": "Could not fetch the page to inspect its content."})
+        bullets.append({"level": "warning", "short": "Couldn't fetch page content", "text": "Could not fetch the page to inspect its content."})
 
-    if not bullets:
-        bullets.append({"level": "ok", "text": "Live checks (TLS, domain age, page content) found nothing suspicious."})
+    # --- trust boost: pull risk back DOWN when live signals are unambiguously clean ---
+    # Deep checks used to be purely additive; they could only ever raise a score, never rescue a
+    # false positive from the static URL-string model (which, on this dataset, false-flags plenty
+    # of ordinary long/complex URLs). An established domain with a normal cert and no suspicious
+    # content is real, verifiable evidence of legitimacy; the live network signals a human would
+    # actually check before trusting a site; so it should be able to override a bad static score,
+    # not just add on top of it. Gated on hard_negative rather than "no bullets at all"; a benign
+    # "couldn't fetch content" (bot-blocked, slow server, WHOIS timeout) is common and shouldn't by
+    # itself cancel out an otherwise-clean, established-domain trust signal.
+    if not hard_negative:
+        if domain_age_days is not None and domain_age_days > ESTABLISHED_DOMAIN_DAYS:
+            score_delta -= 45
+            bullets.append({"level": "ok", "short": "Established domain, clean checks",
+                             "text": f"Domain registered {domain_age_days} days ago with a valid certificate and no suspicious page content; strong trust signal."})
+        elif domain_is_old:
+            score_delta -= 20
+            bullets.append({"level": "ok", "short": "Live checks clean",
+                             "text": "Live checks (TLS, domain age, page content) found nothing suspicious."})
+        elif not bullets:
+            bullets.append({"level": "ok", "short": "Live checks clean", "text": "Live checks (TLS, domain age, page content) found nothing suspicious."})
 
-    return {"signals": signals, "bullets": bullets, "score_delta": min(60, score_delta)}
+    return {"signals": signals, "bullets": bullets, "score_delta": max(-45, min(60, score_delta))}

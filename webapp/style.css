@@ -26,7 +26,7 @@ body {
   overflow-x: hidden;
 }
 
-/* Drifting colour blobs behind everything — glass needs something to refract. */
+/* Drifting colour blobs behind everything; glass needs something to refract. */
 body::before {
   content: "";
   position: fixed; inset: -10%;
@@ -184,7 +184,7 @@ footer.foot { text-align: center; color: var(--muted); font-size: 11px; padding:
   overflow-y: auto; z-index: 100; animation: fadeIn 0.18s ease;
 }
 /* Author CSS beats the browser's default [hidden]{display:none} regardless of source order, so
-   the modal must only turn on flex-display when NOT hidden — otherwise it's stuck visible (and
+   the modal must only turn on flex-display when NOT hidden; otherwise it's stuck visible (and
    blocking every click underneath) even before it's ever opened. */
 .inv-overlay:not([hidden]) { display: flex; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -226,7 +226,7 @@ footer.foot { text-align: center; color: var(--muted); font-size: 11px; padding:
 
 @media print {
   /* visibility:hidden keeps hidden elements' layout space, so the long dashboard behind the
-     modal was still occupying its full multi-page height and pushing the actual report down —
+     modal was still occupying its full multi-page height and pushing the actual report down,
      hence blank leading pages. display:none removes it from flow entirely instead. */
   body > *:not(.inv-overlay) { display: none !important; }
   .inv-overlay { position: static; background: none; padding: 0; display: block; backdrop-filter: none; }

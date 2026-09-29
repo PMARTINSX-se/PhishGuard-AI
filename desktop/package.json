@@ -1,7 +1,7 @@
 {
   "name": "phishguard-desktop",
   "version": "1.0.0",
-  "description": "PhishGuard AI desktop tray app — wraps the webapp/ dashboard with a Windows/Mac/Linux system tray icon.",
+  "description": "PhishGuard AI desktop tray app wraps the webapp/ dashboard with a Windows/Mac/Linux system tray icon.",
   "main": "main.js",
   "author": "PhishGuard AI",
   "license": "MIT",

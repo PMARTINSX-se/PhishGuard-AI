@@ -1,5 +1,5 @@
 """
-PhishGuard AI — Feature Extractor
+PhishGuard AI; Feature Extractor
 Produces a fixed-length numeric feature vector for any URL.
 Used both during model training and at inference time inside the Flask API.
 """
@@ -15,7 +15,7 @@ import tldextract
 
 def _safe_urlparse(url: str) -> ParseResult:
     """urlparse() raises ValueError on malformed input (e.g. stray '[' ']' that look like an
-    IPv6 host literal) — real-world scraped URL datasets are full of this. Since this runs both
+    IPv6 host literal); real-world scraped URL datasets are full of this. Since this runs both
     at training time over hundreds of thousands of rows and live on every extension scan, a
     malformed URL must degrade to a best-effort parse rather than crash the caller."""
     try:
@@ -27,8 +27,15 @@ def _safe_urlparse(url: str) -> ParseResult:
             return ParseResult(scheme="http", netloc="", path=url, params="", query="", fragment="")
 
 SUSPICIOUS_KEYWORDS = [
-    "verify","secure","account","update","confirm","login","signin","banking",
-    "wallet","suspended","limited","unlock","support","billing","invoice",
+    # "account", "login", "signin", "secure", and "support" were removed from this list; they're
+    # words major companies genuinely use in their own official domains (accounts.google.com,
+    # login.microsoftonline.com, support.google.com, secure.bankofamerica.com are all real), so
+    # matching on them alone was flagging legitimate sites, not just phishing. keyword_hits is
+    # now the model's single most important feature (after path/url/query length were removed
+    # for the same kind of over-generalization problem; see the FEATURE_NAMES comment below), so
+    # a too-generic word here carries real weight.
+    "verify","update","confirm","banking",
+    "wallet","suspended","limited","unlock","billing","invoice",
     "password","appleid","paypal","amaz0n","g00gle","microsft","webscr",
 ]
 SUSPICIOUS_TLDS = {"tk","ml","ga","cf","gq","xyz","top","click","loan","work","zip","mov"}
@@ -54,7 +61,7 @@ def registrable_domain(url: str) -> str:
 
 def brand_similarity(url: str) -> dict | None:
     """Best-matching known brand by string similarity, if the URL isn't actually that brand's
-    real domain — flags lookalike/typosquat domains (e.g. paypa1-secure-login.tk vs paypal.com).
+    real domain; flags lookalike/typosquat domains (e.g. paypa1-secure-login.tk vs paypal.com).
     Compares each hyphen-separated token of the domain label against each brand name, so a
     typosquat buried in a longer domain (paypa1-secure-login) still scores against "paypal"
     rather than being diluted by comparing the whole string to "paypal.com"."""
@@ -90,13 +97,25 @@ def shannon_entropy(s: str) -> float:
     return -sum((c/n) * math.log2(c/n) for c in freq.values())
 
 
-# Ordered list of feature names — keep stable; the model is trained on this exact order.
+# Ordered list of feature names; keep stable; the model is trained on this exact order.
+#
+# path_length, query_length, and url_length are deliberately excluded despite still being
+# computed in extract_features() below. Across three retraining rounds, length-based features
+# kept dominating the model (path_length hit ~32% importance; after removing it, url_length,
+# which is mostly just path length in another form since it includes the path, immediately
+# took over at ~20%) purely because of *which dataset each class happened to be scraped from*,
+# not a real causal link to phishing. A broad real-world sweep (github.com/openai, BBC News,
+# Netflix, Gmail, LinkedIn, Python's own docs, ...) kept landing as suspicious/phishing at high
+# confidence purely for having an ordinary, moderately-long URL. That's a dataset-artifact
+# confound, not a signal. host_length is kept; hostname length is a more genuinely meaningful
+# signal (long/random subdomains are a real phishing tell) and never showed this problem.
 FEATURE_NAMES = [
-    "url_length","host_length","path_length","query_length",
+    "host_length",
     "num_dots","num_hyphens","num_digits","num_special",
     "uses_https","uses_ip_host","has_at_symbol","has_double_slash_in_path",
     "subdomain_depth","tld_suspicious","punycode","host_entropy",
     "keyword_hits","brand_in_subdomain","port_explicit","has_redirect_in_url",
+    "brand_similarity_score","is_brand_lookalike",
 ]
 
 
@@ -136,8 +155,14 @@ def extract_features(url: str, page_features: dict | None = None) -> dict:
     try:
         f["port_explicit"] = int(p.port is not None)
     except ValueError:
-        f["port_explicit"] = 0  # malformed port (e.g. non-numeric) — treat as absent
+        f["port_explicit"] = 0  # malformed port (e.g. non-numeric); treat as absent
     f["has_redirect_in_url"] = int("//" in url[8:])  # double slash after scheme
+
+    # brand_similarity was already computed for the UI (explanations/threat-type) but never fed
+    # to the trained model itself; a real typosquat/lookalike signal the classifier couldn't see.
+    sim = brand_similarity(url)
+    f["brand_similarity_score"] = sim["similarity"] if sim else 0
+    f["is_brand_lookalike"] = int(sim is not None)
     return f
 
 
@@ -156,14 +181,14 @@ def build_url_sections(features: dict, url: str) -> list[dict]:
     if sim:
         bullets.append({
             "level": "critical" if sim["similarity"] >= 85 else "warning",
-            "text": f"Domain similarity: {sim['similarity']}% match to {sim['real_domain']} ({sim['brand']}) — likely lookalike.",
+            "text": f"Domain similarity: {sim['similarity']}% match to {sim['real_domain']} ({sim['brand']}); likely lookalike.",
         })
     if features["has_at_symbol"] or features["has_double_slash_in_path"]:
         bullets.append({"level": "warning", "text": "Redirect detected (@ or // trick in URL)."})
     if not features["uses_https"]:
-        bullets.append({"level": "warning", "text": "No HTTPS — traffic isn't encrypted."})
+        bullets.append({"level": "warning", "text": "No HTTPS; traffic isn't encrypted."})
     if features["punycode"]:
-        bullets.append({"level": "warning", "text": "Punycode/internationalized domain — may visually impersonate a real brand."})
+        bullets.append({"level": "warning", "text": "Punycode/internationalized domain; may visually impersonate a real brand."})
     if features["subdomain_depth"] >= 3:
         bullets.append({"level": "warning", "text": "Excessive subdomains hide the real registrable domain."})
     if features["keyword_hits"] >= 2:
@@ -191,27 +216,29 @@ def classify_threat_type(features: dict, url: str, credential_content: bool = Fa
 
 
 def build_explanations(features: dict, url: str) -> list[str]:
+    # Kept short and concrete on purpose (e.g. "Overly long URL", not a full sentence); these
+    # show up in notification popups with limited space, not just a detail panel.
     out = []
     if not features["uses_https"]:
-        out.append("No HTTPS — credentials would travel in plaintext.")
+        out.append("No HTTPS")
     if features["uses_ip_host"]:
-        out.append("Hostname is a raw IP address — strong phishing signal.")
+        out.append("Raw IP address host")
     if features["tld_suspicious"]:
-        out.append("Top-level domain is on the high-abuse list (.tk/.ml/.xyz/etc).")
+        out.append("Suspicious top-level domain")
     if features["punycode"]:
-        out.append("Internationalized (punycode) domain — may impersonate a real brand.")
+        out.append("Punycode domain")
     if features["subdomain_depth"] >= 3:
-        out.append("Excessive subdomains — used to disguise the real registrable domain.")
+        out.append("Excessive subdomains")
     if features["brand_in_subdomain"]:
-        out.append("A well-known brand name appears in the subdomain — common spoof pattern.")
+        out.append("Brand name in subdomain")
     if features["keyword_hits"] >= 2:
-        out.append(f"URL contains {features['keyword_hits']} high-risk keywords (verify/login/secure/etc).")
+        out.append(f"{features['keyword_hits']} high-risk keywords")
     if features["has_at_symbol"] or features["has_double_slash_in_path"]:
-        out.append("URL uses '@' or '//' — classic redirect-abuse trick.")
+        out.append("Redirect trick in URL")
     if features["url_length"] > 100:
-        out.append("Unusually long URL — common in obfuscation.")
+        out.append("Overly long URL")
     if features["host_entropy"] > 4.0:
-        out.append("Hostname looks random/auto-generated.")
+        out.append("Random-looking hostname")
     if not out:
-        out.append("No phishing indicators detected.")
+        out.append("No phishing indicators detected")
     return out

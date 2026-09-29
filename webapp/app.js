@@ -23,7 +23,7 @@ async function runScan() {
   const btn = document.getElementById("scan-btn");
   btn.disabled = true; btn.textContent = "Scanning…";
   try {
-    // Manual scan from the dashboard — always request the full deep check (TLS/WHOIS/redirect/
+    // Manual scan from the dashboard; always request the full deep check (TLS/WHOIS/redirect/
     // content), unlike the extension's automatic per-tab scans which stay fast/static-only.
     const result = await api("/api/scan", {
       method: "POST",
@@ -34,7 +34,7 @@ async function runScan() {
     loadHistory();
     loadStats();
   } catch (e) {
-    renderScanResult({ verdict: "error", risk_score: 0, reasons: [`Backend unreachable at ${getApiBase()} — ${e.message}`] });
+    renderScanResult({ verdict: "error", risk_score: 0, reasons: [`Backend unreachable at ${getApiBase()}; ${e.message}`] });
   } finally {
     btn.disabled = false; btn.textContent = "Scan";
   }
@@ -83,7 +83,7 @@ function openInvestigation(result) {
   if (!result) return;
   const sections = result.sections || {};
   document.getElementById("inv-target").textContent = result.subject
-    ? `${result.subject}${result.from ? " — " + result.from : ""}`
+    ? `${result.subject}${result.from ? "; " + result.from : ""}`
     : result.url || "";
 
   const verdictEl = document.getElementById("inv-verdict");
@@ -112,7 +112,7 @@ async function exportInvestigationReport() {
   const safeName = (target || "report").replace(/[\\/:*?"<>|]+/g, "-").slice(0, 60);
   const suggestedName = `PhishGuard-Investigation-${safeName}.pdf`;
 
-  // Inside the Electron tray app, preload.js exposes a real native Save dialog + file write —
+  // Inside the Electron tray app, preload.js exposes a real native Save dialog + file write:
   // an actual download. In a plain browser/PWA context there's no such API, so fall back to
   // window.print(), which still produces a clean PDF via the browser's own "Save as PDF"
   // destination (the page's @media print rules apply either way).

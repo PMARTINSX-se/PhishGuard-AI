@@ -26,3 +26,6 @@ Thumbs.db
 # Local secrets — Google OAuth client secret must never be committed (README has you set it
 # as an env var when running the backend, never hardcode it in source).
 .env
+
+# Project report, presentations, and figures — kept locally, not in the repo
+docs/

@@ -3,74 +3,221 @@
 <head>
 <meta charset="utf-8" />
 <title>PhishGuard AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:ital@1&family=Poppins:wght@700&display=swap" />
 <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <header class="header">
-    <div class="logo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z"/></svg>
-    </div>
-    <div>
-      <h1>PhishGuard <span class="grad">AI</span></h1>
-      <p class="sub">Real-time threat scanner</p>
-    </div>
-  </header>
+  <!-- Shown first, always. The rest of the popup is gated behind a PhishGuard account. -->
+  <div id="auth-gate">
+    <header class="header">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z"/></svg>
+      </div>
+      <div>
+        <h1>PhishGuard <span class="grad">AI</span></h1>
+        <p class="sub">Real-time threat scanner</p>
+      </div>
+    </header>
 
-  <nav class="tabs">
-    <button class="tab-btn active" id="tab-site-btn" data-tab="site">Site</button>
-    <button class="tab-btn" id="tab-mail-btn" data-tab="mail">Mail</button>
-  </nav>
+    <main class="gate-main">
+      <div class="gate-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z"/></svg>
+      </div>
+      <h2 class="gate-title">Safer browsing, without the noise.</h2>
+      <p class="muted gate-copy">Sign in to start scanning sites, links, and email for phishing in real time.</p>
 
-  <main>
-    <div id="tab-site">
-      <section class="verdict-card" id="verdict-card">
-        <div class="verdict-loading"><div class="spinner"></div><span>Scanning current site...</span></div>
-      </section>
+      <div class="msg-banner" id="gate-error" hidden></div>
 
-      <section class="meta">
-        <div class="meta-row"><span>Host</span><strong id="host">—</strong></div>
-        <div class="meta-row"><span>Confidence</span><strong id="confidence">—</strong></div>
-      </section>
+      <button id="gate-connect-btn" class="btn">Connect with PhishGuard</button>
+      <p class="gate-signup">New to PhishGuard? <a href="#" id="gate-signup-link">Create an account</a></p>
+    </main>
+  </div>
 
-      <section class="reasons">
-        <h2>Threat explanation</h2>
-        <ul id="reasons"><li class="muted">Waiting for analysis...</li></ul>
-      </section>
+  <!-- The real app, hidden until a PhishGuard account is signed in. -->
+  <div id="app-shell" hidden>
+    <header class="topbar">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z"/></svg>
+      </div>
+      <div>
+        <h1>PhishGuard <span class="grad">AI</span></h1>
+        <p class="sub">Browser protection</p>
+      </div>
+      <div class="topbar-spacer"></div>
+      <span id="status-dot" class="dot dot-on" title="Backend status"></span>
+    </header>
 
-      <section class="recommendation" id="rec-section" hidden>
-        <h2>Recommendation</h2>
-        <div class="rec-text" id="rec-text">—</div>
-      </section>
+    <main class="tab-content">
+      <!-- ---------- Home ---------- -->
+      <section id="tab-home" class="tab-panel">
+        <div class="greeting-block">
+          <div class="greeting-text" id="greeting-text">Hello there</div>
+          <p class="greeting-quote" id="greeting-quote">—</p>
+        </div>
 
-      <section class="actions">
-        <button id="rescan-btn" class="btn">↻ Rescan</button>
-        <button id="report-btn" class="btn btn-warn">⚑ Report</button>
-        <button id="whitelist-btn" class="btn btn-ghost">+ Whitelist</button>
-      </section>
-    </div>
-
-    <div id="tab-mail" hidden>
-      <section class="mail-connect" id="mail-connect">
-        <p class="muted">Connect Gmail to scan incoming mail for spoofed senders and phishing links.</p>
-        <button id="gmail-connect-btn" class="btn">Connect Gmail</button>
-      </section>
-
-      <section class="mail-panel" id="mail-panel" hidden>
-        <div class="meta-row"><span>Status</span><strong>Connected</strong></div>
-        <section class="actions" style="grid-template-columns: 1fr 1fr;">
-          <button id="gmail-poll-btn" class="btn">↻ Check now</button>
-          <button id="gmail-disconnect-btn" class="btn btn-ghost">Disconnect</button>
+        <section class="verdict-card" id="verdict-card">
+          <div class="verdict-loading"><div class="spinner"></div><span>Scanning current site...</span></div>
         </section>
-        <h2 style="margin-top:12px">Recent scanned emails</h2>
-        <ul id="mail-list" class="mail-list"><li class="muted">No emails scanned yet.</li></ul>
-      </section>
-    </div>
-  </main>
 
-  <footer>
-    <a href="#" id="open-options">Settings</a>
-    <span id="status-dot" class="dot dot-on" title="Backend status"></span>
-  </footer>
+        <section class="meta">
+          <div class="meta-row"><span>Host</span><strong id="host">—</strong></div>
+          <div class="meta-row"><span>Confidence</span><strong id="confidence">—</strong></div>
+        </section>
+
+        <section class="reasons">
+          <h2>Threat explanation</h2>
+          <ul id="reasons"><li class="muted">Waiting for analysis...</li></ul>
+        </section>
+
+        <section class="recommendation" id="rec-section" hidden>
+          <h2>Recommendation</h2>
+          <div class="rec-text" id="rec-text">—</div>
+        </section>
+
+        <section class="actions">
+          <button id="rescan-btn" class="btn">↻ Rescan</button>
+          <button id="report-btn" class="btn btn-warn">⚑ Report</button>
+          <button id="whitelist-btn" class="btn btn-ghost">+ Whitelist</button>
+        </section>
+
+        <div class="protection-grid" id="protection-grid">
+          <button type="button" class="protection-tile" id="tile-web" data-key="enabled">
+            <div class="tile-icon"><svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z"/></svg></div>
+            <div class="tile-label">Web Protection</div>
+            <div class="tile-state" id="tile-web-state">Off</div>
+          </button>
+          <button type="button" class="protection-tile" id="tile-email" data-key="gmailScanEnabled">
+            <div class="tile-icon"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="m4 6 8 7 8-7"/></svg></div>
+            <div class="tile-label">Email Protection</div>
+            <div class="tile-state" id="tile-email-state">Off</div>
+          </button>
+          <button type="button" class="protection-tile" id="tile-deep" data-key="deepScanEnabled">
+            <div class="tile-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div>
+            <div class="tile-label">Deep Scan</div>
+            <div class="tile-state" id="tile-deep-state">Off</div>
+          </button>
+        </div>
+      </section>
+
+      <!-- ---------- Scan ---------- -->
+      <section id="tab-scan" class="tab-panel" hidden>
+        <div class="greeting-block">
+          <div class="greeting-text">Scan a URL</div>
+          <p class="greeting-quote">Paste any link to check it manually.</p>
+        </div>
+
+        <div class="scan-input-row">
+          <input id="scan-url-input" placeholder="https://example.com" autocomplete="off" />
+          <button id="scan-url-btn" class="btn">Scan</button>
+        </div>
+
+        <div id="scan-result-wrap" hidden>
+          <section class="verdict-card" id="scan-verdict-card"></section>
+          <section class="meta">
+            <div class="meta-row"><span>Host</span><strong id="scan-host">—</strong></div>
+            <div class="meta-row"><span>Confidence</span><strong id="scan-confidence">—</strong></div>
+          </section>
+          <section class="reasons">
+            <h2>Threat explanation</h2>
+            <ul id="scan-reasons"></ul>
+          </section>
+          <section class="recommendation" id="scan-rec-section" hidden>
+            <h2>Recommendation</h2>
+            <div class="rec-text" id="scan-rec-text">—</div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ---------- Email ---------- -->
+      <section id="tab-email" class="tab-panel" hidden>
+        <section class="mail-connect" id="mail-connect">
+          <p class="muted">Connect Gmail to scan incoming mail for spoofed senders and phishing links.</p>
+          <button id="gmail-connect-btn" class="btn">Connect Gmail</button>
+        </section>
+
+        <section class="mail-panel" id="mail-panel" hidden>
+          <div class="meta-row"><span>Status</span><strong>Connected</strong></div>
+          <section class="actions" style="grid-template-columns: 1fr 1fr;">
+            <button id="gmail-poll-btn" class="btn">↻ Check now</button>
+            <button id="gmail-disconnect-btn" class="btn btn-ghost">Disconnect</button>
+          </section>
+          <h2 style="margin-top:12px">Recent scanned emails</h2>
+          <ul id="mail-list" class="mail-list"><li class="muted">No emails scanned yet.</li></ul>
+        </section>
+      </section>
+
+      <!-- ---------- Settings ---------- -->
+      <section id="tab-settings" class="tab-panel" hidden>
+        <section class="settings-section">
+          <h2>Account</h2>
+          <div class="settings-account-row">
+            <strong class="acc-email" id="account-email">—</strong>
+            <button id="account-logout-btn" class="btn btn-ghost">Log out</button>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h2>General</h2>
+          <div class="settings-row">
+            <span>Enable real-time scanning</span>
+            <label class="switch"><input type="checkbox" id="set-enabled"><span class="track"></span></label>
+          </div>
+          <div class="settings-row">
+            <span>Notify on phishing</span>
+            <label class="switch"><input type="checkbox" id="set-notifications"><span class="track"></span></label>
+          </div>
+          <label class="field-label" for="set-apibase">Backend API URL</label>
+          <input type="text" id="set-apibase" placeholder="http://localhost:5000" />
+        </section>
+
+        <section class="settings-section">
+          <h2>Whitelist &amp; Blacklist</h2>
+          <label class="field-label" for="set-whitelist">Whitelist (one domain per line)</label>
+          <textarea id="set-whitelist" placeholder="example.com"></textarea>
+          <label class="field-label" for="set-blacklist">Blacklist (one domain per line)</label>
+          <textarea id="set-blacklist" placeholder="bad-site.tk"></textarea>
+        </section>
+
+        <section class="settings-section">
+          <h2>Gmail Scanning</h2>
+          <div class="settings-row">
+            <span>Scan incoming Gmail</span>
+            <label class="switch"><input type="checkbox" id="set-gmail-enabled"><span class="track"></span></label>
+          </div>
+          <label class="field-label" for="set-gmail-poll">Check interval (minutes)</label>
+          <input type="number" id="set-gmail-poll" min="1" max="60" placeholder="5" />
+        </section>
+
+        <div class="save-row">
+          <button id="settings-save-btn" class="btn">Save Settings</button>
+          <span id="settings-msg"></span>
+        </div>
+
+        <p class="settings-full-link"><a href="#" id="open-options">Open full settings page ↗</a></p>
+      </section>
+    </main>
+
+    <nav class="bottom-nav">
+      <button class="nav-btn active" id="nav-home-btn" data-tab="home">
+        <svg viewBox="0 0 24 24"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+        Home
+      </button>
+      <button class="nav-btn" id="nav-scan-btn" data-tab="scan">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        Scan
+      </button>
+      <button class="nav-btn" id="nav-email-btn" data-tab="email">
+        <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="m4 6 8 7 8-7"/></svg>
+        Email
+      </button>
+      <button class="nav-btn" id="nav-settings-btn" data-tab="settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </button>
+    </nav>
+  </div>
 
   <script src="popup.js"></script>
 </body>

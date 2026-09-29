@@ -1,4 +1,4 @@
-// PhishGuard PWA — app-shell cache for offline load. Data (scan results) is always fetched live.
+// PhishGuard PWA; app-shell cache for offline load. Data (scan results) is always fetched live.
 const CACHE = "phishguard-shell-v1";
 const SHELL = ["./", "./index.html", "./style.css", "./app.js", "./manifest.webmanifest"];
 

@@ -1,4 +1,4 @@
-// Exposes a small, safe bridge into the main process for the webapp/ renderer — contextIsolation
+// Exposes a small, safe bridge into the main process for the webapp/ renderer; contextIsolation
 // stays on (no direct Node/Electron access from page JS), only this one explicit function crosses.
 const { contextBridge, ipcRenderer } = require("electron");
 

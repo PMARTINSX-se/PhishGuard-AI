@@ -1,4 +1,12 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
+/* Defensive global rule: an author stylesheet's "normal" declarations always beat the browser's
+   own UA-stylesheet default (including "[hidden] { display: none }"), regardless of selector
+   specificity; so any rule anywhere below that sets display on a hidden-toggled element (e.g.
+   "#tab-mail { display: flex }") silently wins and the element shows anyway. That's exactly what
+   was making every tab's content render stacked and scrollable together. !important here is the
+   standard, simplest way to guarantee hidden always actually hides, for this element and any
+   future one, without auditing every display: rule in the file by hand. */
+[hidden] { display: none !important; }
 :root {
   --bg: #0a0e1a;
   --text: #e7ecf5;
@@ -9,7 +17,7 @@
   --warning: #f59e0b;
   --danger: #ef4444;
 
-  /* Liquid-glass surface tokens — matches the webapp dashboard */
+  /* Liquid-glass surface tokens; matches the webapp dashboard */
   --glass-fill: rgba(255, 255, 255, 0.055);
   --glass-fill-strong: rgba(255, 255, 255, 0.09);
   --glass-border: rgba(255, 255, 255, 0.12);
@@ -19,7 +27,7 @@
 }
 
 body {
-  width: 360px;
+  width: 380px;
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
@@ -28,7 +36,7 @@ body {
   overflow-x: hidden;
 }
 
-/* Drifting colour blobs behind everything — glass needs something to refract. */
+/* Drifting colour blobs behind everything; glass needs something to refract. */
 body::before {
   content: "";
   position: fixed; inset: -20%;
@@ -70,16 +78,141 @@ h1 { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; }
 .grad { background: linear-gradient(90deg,#22d3ee,#a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .sub { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 1px; }
 
-.tabs { display: flex; gap: 4px; padding: 8px 16px; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--glass-border); }
-.tab-btn {
-  background: none; border: 1px solid transparent; color: var(--muted); font-size: 12px; font-weight: 600;
-  padding: 6px 12px; border-radius: 999px; cursor: pointer; transition: all 0.15s ease;
+/* ---------- App shell layout: fixed-height column so the bottom nav always stays put ---------- */
+#app-shell { display: flex; flex-direction: column; height: 580px; }
+.topbar {
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+  background: var(--glass-fill); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border-bottom: 1px solid var(--glass-border); position: relative; flex-shrink: 0;
 }
-.tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
-.tab-btn.active { color: #06101f; background: linear-gradient(135deg, var(--primary), var(--primary-2)); border-color: transparent; font-weight: 700; }
+.topbar::after {
+  content: ""; position: absolute; inset: auto 0 0 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--glass-highlight), transparent);
+}
+.topbar .logo { width: 30px; height: 30px; border-radius: 9px; }
+.topbar .logo svg { width: 16px; height: 16px; }
+.topbar h1 { font-size: 13px; }
+.topbar .sub { font-size: 9px; }
+.topbar-spacer { flex: 1; }
 
-main { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
-#tab-site, #tab-mail { display: flex; flex-direction: column; gap: 14px; }
+.tab-content { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px 20px; display: block; }
+
+/* ---------- Custom scrollbars: slim gradient thumb instead of the bulky browser default ---------- */
+.tab-content, .mail-list {
+  scrollbar-width: thin; scrollbar-color: rgba(34,211,238,0.45) transparent;
+}
+.tab-content::-webkit-scrollbar, .mail-list::-webkit-scrollbar { width: 5px; }
+.tab-content::-webkit-scrollbar-track, .mail-list::-webkit-scrollbar-track { background: transparent; }
+.tab-content::-webkit-scrollbar-thumb, .mail-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(34,211,238,0.55), rgba(167,139,250,0.55));
+  border-radius: 999px;
+}
+.tab-content::-webkit-scrollbar-thumb:hover, .mail-list::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(34,211,238,0.8), rgba(167,139,250,0.8));
+}
+.tab-panel { display: flex; flex-direction: column; gap: 14px; }
+
+.bottom-nav {
+  display: flex; flex-shrink: 0; gap: 4px; padding: 8px 10px;
+  margin: 0 12px 12px; border-radius: 22px; position: relative;
+  background: var(--glass-fill-strong);
+  backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.14), inset 0 -1px 0 rgba(0,0,0,0.15);
+}
+.bottom-nav::before {
+  content: ""; position: absolute; inset: 0; border-radius: 22px; pointer-events: none;
+  background: linear-gradient(160deg, rgba(255,255,255,0.10), transparent 45%);
+}
+.nav-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background: none; border: none; border-radius: 14px; color: var(--muted); padding: 8px 4px 9px; cursor: pointer;
+  font-size: 10px; font-weight: 600; transition: color 0.15s ease, background 0.15s ease;
+}
+.nav-btn svg { width: 19px; height: 19px; stroke: currentColor; fill: none; stroke-width: 2; transition: stroke 0.15s ease; }
+.nav-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.nav-btn.active { color: var(--primary); background: rgba(34,211,238,0.12); }
+.nav-btn.active svg { filter: drop-shadow(0 0 6px rgba(34,211,238,0.5)); }
+
+/* ---------- Home: greeting + rotating quote ---------- */
+.greeting-block { padding: 2px 2px 0; }
+.greeting-text {
+  font-family: "Poppins", "Segoe UI", system-ui, sans-serif;
+  font-size: 23px; font-weight: 700; letter-spacing: -0.01em;
+}
+.greeting-quote {
+  font-family: "Lora", ui-serif, Georgia, serif;
+  font-style: italic; font-weight: 400; font-size: 12.5px; line-height: 1.55; letter-spacing: 0.01em;
+  color: var(--muted); margin-top: 6px;
+}
+
+/* ---------- Protection tiles ---------- */
+.protection-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.protection-tile {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+  border-radius: 14px; padding: 12px 6px; cursor: pointer; border: 1px solid var(--glass-border);
+  background: var(--glass-fill); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  color: var(--text); /* buttons default to UA "ButtonText" (black) instead of inheriting body color */
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.protection-tile:hover { transform: translateY(-1px); }
+.protection-tile.on { border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.07); }
+.protection-tile .tile-icon { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.protection-tile.on .tile-icon { color: var(--success); }
+.protection-tile .tile-icon svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; }
+.protection-tile .tile-label { font-size: 10px; font-weight: 700; line-height: 1.3; }
+.protection-tile .tile-state {
+  font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 2px 7px; border-radius: 999px; color: var(--muted); background: rgba(255,255,255,0.06);
+}
+.protection-tile.on .tile-state { color: var(--success); background: rgba(34,197,94,0.14); }
+
+/* ---------- Scan tab ---------- */
+.scan-intro { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.scan-input-row { display: flex; gap: 8px; }
+.scan-input-row input {
+  flex: 1; padding: 10px 12px; background: rgba(4,8,18,0.45); border: 1px solid var(--glass-border);
+  color: var(--text); border-radius: 10px; font-size: 12px; backdrop-filter: blur(8px);
+}
+.scan-input-row input:focus { outline: none; border-color: rgba(34,211,238,0.55); box-shadow: 0 0 0 3px rgba(34,211,238,0.15); }
+.scan-input-row .btn { flex-shrink: 0; padding: 10px 16px; }
+
+/* ---------- Settings tab ---------- */
+.settings-section {
+  position: relative; border-radius: 14px; padding: 14px;
+  background: var(--glass-fill); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); overflow: hidden;
+}
+.settings-section::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 1px; background: linear-gradient(90deg, transparent, var(--glass-highlight), transparent); }
+.settings-section h2 { margin-bottom: 10px; }
+.settings-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; }
+.settings-row span { font-size: 12px; font-weight: 500; }
+.settings-section label.field-label { display: block; font-size: 10.5px; color: var(--muted); font-weight: 600; margin: 10px 0 5px; }
+.settings-section label.field-label:first-of-type { margin-top: 0; }
+.settings-section input[type="text"], .settings-section input[type="number"], .settings-section textarea {
+  width: 100%; padding: 8px 10px; background: rgba(4,8,18,0.45); border: 1px solid var(--glass-border);
+  color: var(--text); border-radius: 9px; font-size: 11.5px; font-family: ui-monospace, monospace;
+}
+.settings-section textarea { min-height: 52px; resize: vertical; }
+.switch { position: relative; width: 38px; height: 22px; flex-shrink: 0; }
+.switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.switch .track {
+  position: absolute; inset: 0; border-radius: 999px; background: rgba(255,255,255,0.12);
+  border: 1px solid var(--glass-border); transition: background 0.15s ease;
+}
+.switch .track::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; transition: transform 0.15s ease;
+}
+.switch input:checked + .track { background: linear-gradient(135deg, var(--primary), var(--primary-2)); }
+.switch input:checked + .track::after { transform: translateX(16px); }
+.settings-account-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.settings-account-row .acc-email { font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px; }
+.settings-full-link { font-size: 11px; text-align: center; }
+.settings-full-link a { color: var(--primary); text-decoration: none; font-weight: 600; }
+.settings-full-link a:hover { text-decoration: underline; }
+.save-row { display: flex; align-items: center; gap: 10px; }
+#settings-msg { font-size: 11px; color: var(--success); font-weight: 600; }
 
 .mail-connect { text-align: center; padding: 10px 4px; display: flex; flex-direction: column; gap: 10px; }
 .mail-list { list-style: none; display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
@@ -171,19 +304,42 @@ h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: 
 .btn-ghost { color: var(--muted); }
 
 /* Primary call-to-action buttons (Connect Gmail) get the full gradient sheen treatment */
-#gmail-connect-btn {
+#gmail-connect-btn, #gate-connect-btn {
   background: linear-gradient(155deg, rgba(34, 211, 238, 0.95), rgba(99, 102, 241, 0.9));
   color: #05131f; border: 1px solid rgba(255, 255, 255, 0.35);
   box-shadow: 0 6px 18px rgba(34, 211, 238, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
-#gmail-connect-btn::before {
+#gmail-connect-btn::before, #gate-connect-btn::before {
   content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
   background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.55) 46%, transparent 62%);
   background-size: 220% 100%; background-position: 120% 0;
   transition: background-position 0.6s ease;
 }
-#gmail-connect-btn:hover::before { background-position: -20% 0; }
-#gmail-connect-btn:hover { box-shadow: 0 10px 24px rgba(34, 211, 238, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+#gmail-connect-btn:hover::before, #gate-connect-btn:hover::before { background-position: -20% 0; }
+#gmail-connect-btn:hover, #gate-connect-btn:hover { box-shadow: 0 10px 24px rgba(34, 211, 238, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+
+.msg-banner {
+  font-size: 11px; line-height: 1.5; padding: 9px 12px; border-radius: 10px; text-align: left;
+  background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.35); color: #fca5a5;
+}
+
+/* ---------- Auth gate; the first thing shown on every popup open ---------- */
+.gate-main {
+  padding: 28px 24px 24px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;
+}
+.gate-icon {
+  width: 56px; height: 56px; border-radius: 16px; margin-bottom: 14px;
+  background: linear-gradient(135deg, #22d3ee, #6366f1); display: flex; align-items: center; justify-content: center;
+  color: #06101f; box-shadow: 0 0 26px rgba(34,211,238,0.45), inset 0 1px 0 rgba(255,255,255,0.5);
+}
+.gate-icon svg { width: 30px; height: 30px; }
+.gate-title { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 4px; }
+.gate-copy { font-size: 12px; line-height: 1.5; margin-bottom: 18px; max-width: 280px; }
+.gate-main .msg-banner { width: 100%; margin-bottom: 14px; }
+.gate-main .btn { width: 100%; padding: 11px; font-size: 13px; }
+.gate-signup { font-size: 11.5px; color: var(--muted); margin-top: 14px; }
+.gate-signup a { color: var(--primary); text-decoration: none; font-weight: 600; }
+.gate-signup a:hover { text-decoration: underline; }
 
 footer {
   padding: 10px 16px;

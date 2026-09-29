@@ -1,4 +1,4 @@
-# PhishGuard AI — Backend
+# PhishGuard AI Backend
 
 Flask + scikit-learn ML inference API for phishing URL classification.
 

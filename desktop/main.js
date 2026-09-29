@@ -53,6 +53,26 @@ function postJson(urlStr, body) {
   });
 }
 
+function getJson(urlStr) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(urlStr);
+    const lib = url.protocol === "https:" ? https : http;
+    lib
+      .get(url, (res) => {
+        let raw = "";
+        res.on("data", (c) => (raw += c));
+        res.on("end", () => {
+          try {
+            resolve(JSON.parse(raw));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      })
+      .on("error", reject);
+  });
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 960,
@@ -83,13 +103,81 @@ async function scanClipboardUrl() {
   }
   try {
     const result = await postJson(`${getApiBase()}/api/scan`, { url: text });
+    // Electron's Notification has no native "list items" support (unlike chrome.notifications),
+    // so the explanation is folded into the body as bullet lines instead of just a bare score.
+    const reasons = (result.reasons || []).slice(0, 4).map((r) => `• ${r}`).join("\n");
     new Notification({
       title: `PhishGuard: ${(result.verdict || "unknown").toUpperCase()}`,
-      body: `${text}\nRisk ${result.risk_score ?? "?"}/100 — ${result.recommendation || ""}`,
+      body: `${text}\nRisk ${result.risk_score ?? "?"}/100; ${result.recommendation || ""}${reasons ? `\n${reasons}` : ""}`,
     }).show();
   } catch (e) {
     new Notification({ title: "PhishGuard AI", body: `Backend unreachable at ${getApiBase()}` }).show();
   }
+}
+
+// ---------- Gmail-flagged-email notifications ----------
+// The tray app itself does no Gmail scanning (that OAuth flow lives in the extension); instead
+// it polls the backend for email scans the extension already ran and stored, and fires a native
+// notification for any newly-flagged one it hasn't shown yet. This is the actual tray-app popup
+// for email results, separate from (and in addition to) the browser extension's own notification.
+const EMAIL_POLL_INTERVAL_MS = 45 * 1000;
+const NOTIFIED_CACHE_PATH = path.join(app.getPath("userData"), "notified-emails.json");
+let notifiedMessageIds = new Set();
+let isFirstPoll = false;
+
+function loadNotifiedIds() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(NOTIFIED_CACHE_PATH, "utf-8"));
+    notifiedMessageIds = new Set(raw);
+  } catch (e) {
+    // No cache file yet; this is the very first launch. Without this flag, the first poll
+    // would immediately fire a notification for every already-existing flagged email in the
+    // backend's history (a flood). Seed the "seen" set silently instead; only genuinely new
+    // emails from this point on get a popup.
+    notifiedMessageIds = new Set();
+    isFirstPoll = true;
+  }
+}
+
+function saveNotifiedIds() {
+  try {
+    // Cap the persisted list so it doesn't grow forever across restarts.
+    const trimmed = Array.from(notifiedMessageIds).slice(-500);
+    fs.writeFileSync(NOTIFIED_CACHE_PATH, JSON.stringify(trimmed));
+  } catch (e) {
+    /* non-fatal; worst case a restart re-notifies a few already-seen emails */
+  }
+}
+
+async function pollEmailScans() {
+  try {
+    const data = await getJson(`${getApiBase()}/api/scans/recent?limit=20`);
+    const emails = data.emails || [];
+    const bootstrapping = isFirstPoll;
+    isFirstPoll = false;
+
+    for (const row of emails) {
+      const id = row.message_id;
+      if (!id || notifiedMessageIds.has(id)) continue;
+      notifiedMessageIds.add(id);
+      if (bootstrapping || row.verdict === "safe") continue;
+
+      const reasons = (row.detail?.reasons || []).slice(0, 4).map((r) => `• ${r}`).join("\n");
+      new Notification({
+        title: `PhishGuard: ${row.verdict.toUpperCase()} email`,
+        body: `${row.from_addr || "Unknown sender"}; "${row.subject || "(no subject)"}"\nRisk ${row.risk_score}/100${reasons ? `\n${reasons}` : ""}`,
+      }).show();
+    }
+    if (emails.length) saveNotifiedIds();
+  } catch (e) {
+    /* backend unreachable; just try again on the next interval, no need to notify about this */
+  }
+}
+
+function startEmailPolling() {
+  loadNotifiedIds();
+  pollEmailScans();
+  setInterval(pollEmailScans, EMAIL_POLL_INTERVAL_MS);
 }
 
 function createTray() {
@@ -114,7 +202,7 @@ function createTray() {
   tray.on("click", () => { mainWindow.show(); mainWindow.focus(); });
 }
 
-// Renders the current page to a real PDF file and lets the user pick where to save it — a true
+// Renders the current page to a real PDF file and lets the user pick where to save it; a true
 // download, instead of the webapp's browser fallback (window.print(), which opens the OS print
 // dialog). Chromium's PDF renderer respects the page's existing @media print stylesheet, so this
 // picks up the same print-only investigation-report layout without any extra work.
@@ -138,6 +226,7 @@ ipcMain.handle("export-investigation-pdf", async (_event, suggestedName) => {
 app.whenReady().then(() => {
   createWindow();
   createTray();
+  startEmailPolling();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

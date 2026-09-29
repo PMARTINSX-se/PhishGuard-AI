@@ -1,5 +1,5 @@
 """
-PhishGuard AI — Model Training Script
+PhishGuard AI; Model Training Script
 Trains a Random Forest classifier on a phishing URL dataset.
 
 Usage:
@@ -115,7 +115,7 @@ def main():
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     joblib.dump({"model": clf, "feature_names": FEATURE_NAMES}, args.out)
-    # Plain ASCII here — Windows' console defaults to cp1252, which can't encode "✓" and would
+    # Plain ASCII here; Windows' console defaults to cp1252, which can't encode "✓" and would
     # otherwise crash this print *after* the model has already been saved successfully.
     print(f"\n[DONE] Saved model to {args.out}")
 

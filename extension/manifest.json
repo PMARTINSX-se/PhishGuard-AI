@@ -6,6 +6,9 @@
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuSn6NJoTYeh6Napm+IUyH48urxDN3nHjliu/w9/eixv5i8kpezLe34WfanTVk4LQi2IkRNTn14c6fMbQ1ooCJMMeHzZ43VvBUidYHQF42xeREOhfsQPUCknvY91NBt9AR4SRkGWW/Dy0erCDoajSdxV5MdRsUXq4ss+HeWX/SMsIvo+ZZDOTFyg+vvYQpUt+Nt+OtN3l3H5vNZ1xVPJcJAhbhfIQ5lss+yUweUVI761efX8fO5XyiPuWznnO/4IC5wM80AGsMsyFuRQQBzHNUBsPXVTGa7lRCnb+KKPRKIGgBgKJrXFIwykIkXumkZauL9AMFUUD3dlX6d6M5tMuMQIDAQAB",
   "permissions": ["activeTab", "tabs", "storage", "notifications", "alarms", "identity"],
   "host_permissions": ["<all_urls>", "https://gmail.googleapis.com/*"],
+  "externally_connectable": {
+    "matches": ["http://localhost:5000/*", "http://127.0.0.1:5000/*"]
+  },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
